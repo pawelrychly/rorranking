@@ -7,5 +7,5 @@ Author: Who wrote it
 Maintainer: Who to complain to <yourfault@somewhere.net>
 Depends: ROI (>= 0.1-0),ROI.plugin.glpk (>= 0.0-1), rJava (>= 0.9-3), RXMCDA (>= 1.5.0)
 Description: More about what it does (maybe more than one line)
-License: GPL-3
+License: file LICENSE
 Suggests: testthat (>= 0.7.1)
