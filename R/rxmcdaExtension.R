@@ -72,23 +72,144 @@ getHierarchyOfCriteriaTree <- function(tree){
 
 
 
-#errFile <-NULL
-#tmpErr <- try(
-#  treeCriteria<-xmlTreeParse("in1/hierarchy-of-criteria.xml",useInternalNodes=TRUE)
-#)
-#if (inherits(tmpErr, 'try-error')) {
-#  errFile <<- "Cannot read criteria file."
-#}
-#if (is.null(errFile)) {
-#  if (checkXSD(treeCriteria) == 0) {
-#    errFile <<- " Criteria file is not XMCDA valid."
-#  }
-#}
+########################################
+####### helpers ########################
+########################################
 
-#if (is.null(errFile)) {
-#  flag <- TRUE
-#  hierarchy <- getHierarchyOfCriteriaTree(treeCriteria)
-#  print(hierarchy)
-#}
+getPerformancesFromXmcdaFiles <- function() {
+  
+  treeAlternatives <- NULL
+  treeCriteria <- NULL
+  treePerformanceTable <- NULL
+  
+  tmpErr <- try(
+    treeAlternatives<-xmlTreeParse("alternatives.xml",useInternalNodes=TRUE)
+  )
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read alternatives file.", 
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(treeAlternatives) == 0) {
+    return(list(status="ERROR", errFile ="Alternatives file is not XMCDA valid.",
+                errData=NULL, data=NULL))  
+  }
+  
+  tmpErr <- try(
+    treeCriteria<-xmlTreeParse("criteria.xml",useInternalNodes=TRUE)
+  )
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read criteria file.",
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(treeCriteria) == 0) {
+    return(list(status="ERROR", errFile="Criteria file is not XMCDA valid.",
+                errData=NULL, data=NULL))
+  }
+  
+  tmpErr <- try(
+    treePerformanceTable<-xmlTreeParse("performances.xml",useInternalNodes=TRUE)
+  )
+  
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile= "Cannot read performance file.",
+                errData=NULL, data=NULL))
+  }
+  
+  if (checkXSD(treePerformanceTable) == 0) {
+    return(list(status="ERROR", errFile ="Performances file is not XMCDA valid.",
+                errData=NULL, data=NULL))
+  }
+  
+  altIDsFrame <- NULL
+  critIDsFrame <- NULL
+  performancesFrame <- NULL
+  critIDs <- NULL
+  altIDs <- NULL
+  performances <- NULL
+ 
+  flag <- TRUE
+  critIDsFrame <- getCriteriaIDs(treeCriteria)
+  if (critIDsFrame$status == "OK") {
+    critIDs <- critIDsFrame[[1]] 
+    altIDsFrame <- getAlternativesIDs(treeAlternatives)
+  } else {
+    return(list(status="ERROR", errFile = NULL,
+                errData = critIDsFrame$status, data=NULL)) 
+  }
+  if (altIDsFrame$status == "OK") {
+    altIDs <- altIDsFrame[[1]]
+    performancesFrame <- getPerformanceTables(treePerformanceTable,altIDs = altIDs, critIDs = critIDs)    
+  } else {
+    return(list(status="ERROR", errFile = NULL,
+                errData = altIDsFrame$status, data=NULL)) 
+  }
+  
+  if (performancesFrame$status == "OK") {
+    performances <- performancesFrame[[1]]
+  } else {
+    return(list(status="ERROR", errFile = NULL,
+                errData = performancesFrame$status, data=NULL))  
+  }
+  return(list(status="OK", errFile = NULL,
+              errData = NULL, data=performances)) 
+}
 
 
+getCharacteristicPointsFromXmcdaFile <- function(performances){
+  treePoints <- NULL
+  tmpErr<-try(
+    {
+      treePoints<-xmlTreeParse("characteristic-points.xml",useInternalNodes=TRUE)
+    }
+  )  
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read characteristic-points.xml file.", 
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(treePoints)==0) {
+    return(list(status="ERROR", errFile = "Characteristic Points File is not XMCDA valid.",
+                errData=NULL, data=NULL))  
+  }
+  
+  values <- getCriteriaValues(treePoints, colnames(performances))
+  if (values$status == "OK") {
+    characteristicPoints <- rep(0, length(colnames(performances)))
+    for (row_num in 1:nrow(values$characteristicPoints)) {
+      row <- values$characteristicPoints[row_num,]
+      characteristicPoints[row[1]] <- row[2] 
+    } 
+    return(list(status="OK", errFile=NULL,
+                errData=NULL, data=characteristicPoints))
+  } else {
+    return(list(status="ERROR", errFile=NULL,
+                errData=values$status, data=NULL))  
+  }
+}
+
+getParametersDataFromXmcdaFile <- function(keys, defaults=list()) {
+  tree <- NULL
+  tmpErr<- try(
+    {
+      tree<-xmlTreeParse("parameters.xml",useInternalNodes=TRUE)  
+    }
+  )
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read parameters.xml file.",
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(tree) == 0) {
+    return(list(status="ERROR", errFile="File with parameters values is not XMCDA valid.",
+                errData=NULL, data=NULL))
+  }
+  parameters <- list()
+  params <- getParameters(tree)
+  for (key in keys) {
+    if (key %in% names(params)) {
+      parameters[[key]] <- params[[key]]
+    } else if (key %in% names(defaults)) {
+      parameters[[key]] <- defaults[[key]]
+    } 
+  }
+  return(list(status="OK", errFile=NULL,
+                errData=NULL, data=parameters))
+}
