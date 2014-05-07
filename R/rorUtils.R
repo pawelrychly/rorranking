@@ -23,13 +23,15 @@ getCriteriaFilter <- function(perf, criteria=NULL) {
   #for each criterion id
   for (criterionID in criteria) {
     index <- which(criteria.names == criterionID)
-    start.index <- offsets[index]
-    last.index <- length(filter)-1
-    if (index < length(offsets)) {
-        last.index <- offsets[index+1]-1
-    }
-    for (i in seq(start.index, last.index)) {
-      filter[i] <- FALSE
+    if (length(index) == 1) {
+      start.index <- offsets[index]
+      last.index <- length(filter)-1
+      if (index < length(offsets)) {
+          last.index <- offsets[index+1]-1
+      }
+      for (i in seq(start.index, last.index)) {
+        filter[i] <- FALSE
+      }  
     }
   }
   return(filter)
