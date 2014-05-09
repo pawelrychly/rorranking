@@ -409,7 +409,9 @@ buildPairwiseComparisonConstraints <- function(perf, strong.prefs = NULL,
       group.name <- NULL
       if (ncol(strong.prefs) > 2) {
         selected.criteria <- criteria.by.nodes[[strong.prefs[i,3]]]
-        group.name <- paste("[", strong.prefs[i,3], "]", sep="")
+        if (strong.prefs[i,3] != 0) {
+          group.name <- paste("[", strong.prefs[i,3], "]", sep="")
+        }
       }
       pref.constraints <- buildStrongPreferenceConstraint(strong.prefs[i,1], strong.prefs[i,2], getFilteredAltVariableMatrix(alt.vars, getCriteriaFilter(perf,selected.criteria)))
       all.constraints <- combineConstraints(all.constraints, pref.constraints);
@@ -423,7 +425,9 @@ buildPairwiseComparisonConstraints <- function(perf, strong.prefs = NULL,
       group.name <- NULL
       if (ncol(weak.prefs) > 2) {
         selected.criteria <- criteria.by.nodes[[weak.prefs[i,3]]] 
-        group.name <- paste("[", weak.prefs[i,3], "]", sep="")
+        if (weak.prefs[i,3] != 0) {
+          group.name <- paste("[", weak.prefs[i,3], "]", sep="")
+        }
       }
       pref.constraints <- buildWeakPreferenceConstraint(weak.prefs[i,1], weak.prefs[i,2], getFilteredAltVariableMatrix(alt.vars, getCriteriaFilter(perf,selected.criteria)))
       all.constraints <- combineConstraints(all.constraints, pref.constraints);
@@ -436,7 +440,9 @@ buildPairwiseComparisonConstraints <- function(perf, strong.prefs = NULL,
       group.name <- NULL
       if (ncol(indif.prefs) > 2) {
         selected.criteria <- criteria.by.nodes[[indif.prefs[i,3]]]
-        group.name <- paste("[", indif.prefs[i,3], "]", sep="")
+        if (indif.prefs[i,3] != 0) {
+          group.name <- paste("[", indif.prefs[i,3], "]", sep="")
+        }
       }
       pref.constraints <- buildIndifPreferenceConstraint(indif.prefs[i,1], indif.prefs[i,2], getFilteredAltVariableMatrix(alt.vars, getCriteriaFilter(perf,selected.criteria)))
       all.constraints <- combineConstraints(all.constraints, pref.constraints);

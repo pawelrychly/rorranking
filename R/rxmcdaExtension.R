@@ -232,8 +232,14 @@ getAlternativesComparisonsByTypeOfPreference <- function(tree, altIDs=NULL, pref
     for (i in 1:length(alternativesComparisons)){
       alternativesComp <- matrix(nrow=0,ncol=3)
       alternativesPairsComp <- matrix(nrow=0,ncol=5)
+      comparisonType <- getNodeSet(alternativesComparisons[[i]], "comparisonType")
+      if (length(comparisonType) < 1) {
+        return(list(status="ERROR", errFile =NULL,
+                          errData="ComparisonType in  <alternativesComparisons> is not given.", data=NULL)) 
+              
+      }
 
-      type <- xmlValue(getNodeSet(alternativesComparisons[[i]], "comparisonType")[[1]])
+      type <- xmlValue(comparisonType[[1]])
       pairs <- getNodeSet(alternativesComparisons[[i]], "pairs/pair")
       if (!(type %in% preferenceTypes)) {
         return(list(status="ERROR", errFile =NULL,
@@ -456,4 +462,172 @@ getRankRelatedPreferencesFromXmcdaFile <- function(filename, performances) {
   }
   cmpFrame <- getAlternativesIntervalValuesWithNodeData(tree, altIDs=rownames(performances))
   return(list(status=cmpFrame$status, errFile=cmpFrame$errFile, errData=cmpFrame$errData, data=cmpFrame$data))
+}
+
+getNecessaryRelationsMatrixFromXmcdaFile <- function(filename, performances){
+  treePoints <- NULL
+  tmpErr<-try(
+    {
+      tree<-xmlTreeParse(filename,useInternalNodes=TRUE)
+    }, silent=TRUE
+  )  
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read necessary-relations.xml file.", 
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(tree)==0) {
+    return(list(status="ERROR", errFile = "Necessary relations File is not XMCDA valid.",
+                errData=NULL, data=NULL))  
+  }
+  relations <- getAlternativesComparisonsLabels(tree, rownames(performances))
+  if (relations$status == "OK") {
+    alt.ids = dimnames(performances)[[1]]
+    
+    nec.relations.matrix = matrix(data=FALSE, ncol=nrow(performances), nrow=nrow(performances),
+                                  dimnames=list(alt.ids, alt.ids))
+    for(i in seq(nrow(relations[[1]]))) {
+        id1 = relations[[1]][i, 1]
+        id2 = relations[[1]][i, 2]
+        nec.relations.matrix[id1, id2] = TRUE 
+    }
+    return(list(status="OK", errFile=NULL,
+                errData=NULL, data=nec.relations.matrix))
+  } else {
+    return(list(status="ERROR", errFile=NULL,
+                errData=relations$status, data=NULL))  
+  }
+}
+
+
+putAlternativesComparisonsWithReductsData <- function (tree, relations, reducts.by.relations) 
+{
+  out <- list()
+  err1 <- NULL
+  err2 <- NULL
+  root <- NULL
+  tmpErr <- try({
+    root <- xmlRoot(tree)
+  })
+  if (inherits(tmpErr, "try-error")) {
+    err1 <- "No <xmcda:XMCDA> found."
+  }
+  if (length(root) != 0) {
+    altVals <- newXMLNode("alternativesComparisons", parent = root, namespace = c())
+    pairs <- newXMLNode("pairs", parent = altVals, namespace = c())
+    relations.ids <- names(relations)
+    for (id in relations.ids) {
+      tmpErr <- try({
+        pair <- newXMLNode("pair", parent = pairs, namespace = c())
+        initial <- newXMLNode("initial", parent = pair, 
+                              namespace = c())
+        newXMLNode("alternativeID", relations[[id]][[1]], parent = initial, namespace = c())
+        terminal <- newXMLNode("terminal", parent = pair, 
+                               namespace = c())
+        newXMLNode("alternativeID", relations[[id]][[2]], parent = terminal, namespace = c())
+        
+        values <- newXMLNode("values", parent = pair, namespace = c())
+        if (length(reducts.by.relations[[id]]) > 0) {
+          for (reduct in reducts.by.relations[[id]]) {
+            val <- newXMLNode("value", parent = values, namespace = c())
+            newXMLNode("label", reduct, parent = val, namespace = c())  
+          }  
+        }
+      })
+      if (inherits(tmpErr, "try-error")) {
+        return(list(status="ERROR", errFile = "Impossible to put (a) value(s) in a <alternativesComparisons>."))
+      }
+    }
+  }
+  
+  return(list(status="OK", errFile=NULL))
+}
+
+
+getExtremeRanksFromXmcdaFile <- function(
+  worst.ranking.filename, best.ranking.filename, performances) {
+  
+  treeWorstRanks <- NULL
+  treeBestRanks <- NULL
+  worstRanks <- NULL
+  bestRanks <- NULL
+  ranks <- NULL
+  tmpErr <- try(
+    treeWorstRanks<-xmlTreeParse(worst.ranking.filename,useInternalNodes=TRUE)
+  )
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read worst-ranking.xml file.",
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(treeWorstRanks) == 0) {
+    return(list(status="ERROR", errFile ="Worst ranking file is not XMCDA valid.",
+                errData=NULL, data=NULL)) 
+  }
+  
+  tmpErr <- try(
+    treeBestRanks<-xmlTreeParse(best.ranking.filename,useInternalNodes=TRUE)
+  )
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read best-ranking.xml file.",
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(treeBestRanks) == 0) {
+    return(list(status="ERROR", errFile ="Best ranking file is not XMCDA valid.",
+                errData=NULL, data=NULL)) 
+  }
+  alternativesIds = rownames(performances)
+  flag <- TRUE
+  worstRanksFrame <- getAlternativesValues(treeWorstRanks, alternativesIDs=alternativesIds)
+  bestRanksFrame <- NULL
+  if (worstRanksFrame$status == "OK") {
+    worstRanks <- worstRanksFrame[[1]] 
+    bestRanksFrame <- getAlternativesValues(treeBestRanks, alternativesIDs=alternativesIds)
+    if (bestRanksFrame$status == "OK") {
+      bestRanks <- bestRanksFrame[[1]]
+      ranks <- cbind(worstRanks[,2], bestRanks[,2])
+    } else {
+      return(list(status="ERROR", errFile =bestRanksFrame$status,
+                errData=NULL, data=NULL)) 
+    }
+  } else {
+    return(list(status="ERROR", errFile =worstRanksFrame$status,
+                errData=NULL, data=NULL)) 
+  }
+  return(list(status="OK", errFile = NULL, errData=NULL, data = ranks))
+}
+
+
+putAlternativesValuesWithReductsData <- function (tree, reducts.by.alternatives) 
+{
+  out <- list()
+  err1 <- NULL
+  err2 <- NULL
+  root <- NULL
+  tmpErr <- try({
+    root <- xmlRoot(tree)
+  })
+  if (inherits(tmpErr, "try-error")) {
+    err1 <- "No <xmcda:XMCDA> found."
+  }
+  if (length(root) != 0) {
+    altVals <- newXMLNode("alternativesValues", parent = root, namespace = c())
+    for (id in names(reducts.by.alternatives)) {
+      tmpErr <- try({
+        altVal <- newXMLNode("alternativeValue", parent = altVals, namespace = c())
+        altId <- newXMLNode("alternativeID", id, parent = altVal, namespace = c())
+      
+        values <- newXMLNode("values", parent = altVal, namespace = c())
+        if (length(reducts.by.alternatives[[id]]) > 0) {
+          for (reduct in reducts.by.alternatives[[id]]) {
+            val <- newXMLNode("value", parent = values, namespace = c())
+            newXMLNode("label", reduct, parent = val, namespace = c())  
+          }  
+        }
+      })
+      if (inherits(tmpErr, "try-error")) {
+        return(list(status="ERROR", errFile = "Impossible to put (a) value(s) in a <alternativesValues>."))
+      }
+    }
+  }
+  
+  return(list(status="OK", errFile=NULL))
 }
