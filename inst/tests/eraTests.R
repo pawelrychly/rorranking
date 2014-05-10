@@ -1,4 +1,5 @@
 library(testthat)
+library(rorranking)
 getPerformances0 <- function() {
   performances <- matrix(c(1,1,
                            1,5,

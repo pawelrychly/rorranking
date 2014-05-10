@@ -36,7 +36,7 @@ getCriteriaFromChildNodes <- function(nodes, criteria.by.nodes = list(), nodeid 
     if ("criteriaSet" %in% names(nodesXML)) {
       
       criterionIDs <- sapply(xmlChildren(nodesXML[[1]]),function(element){
-        criterionID <- xmlChildren(xmlChildren(element)[[1]])$text
+        criterionID <- xmlValue(xmlChildren(xmlChildren(element)[[1]])$text)
         return(criterionID)
       })  
       names(criterionIDs) <- c()
@@ -70,7 +70,28 @@ getHierarchyOfCriteriaTree <- function(tree){
 }
 
 
-
+getHierarchyOfCriteriaFromXmcdaFile <- function(filename) {  
+  tree <- NULL
+  tmpErr<-try(
+    {
+       tree<-xmlTreeParse(filename,useInternalNodes=TRUE)
+    }, silent=TRUE
+  )
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read hierarchy-of-criteria.xml file.",
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(tree) == 0) {
+    return(list(status="ERROR", errFile="Hierarchy file is not XMCDA valid.",
+                errData=NULL, data=NULL))
+  }
+  
+  errData <- NULL
+  flag <- TRUE
+  cmp <- NULL
+  hierarchy = getHierarchyOfCriteriaTree(tree)
+  return(list(status="OK", errFile=NULL, errData=NULL, data=hierarchy))
+}
 
 ########################################
 ####### helpers ########################
@@ -630,4 +651,39 @@ putAlternativesValuesWithReductsData <- function (tree, reducts.by.alternatives)
   }
   
   return(list(status="OK", errFile=NULL))
+}
+
+
+
+putAlternativesValuesWithAttributes <- function(tree, alternativesValues, alternativesIDs, attributes=c(), mcdaConcept = NULL){
+  out<-list()
+  err1<-NULL
+  err2<-NULL
+  root<-NULL
+  tmpErr<-try(
+    {
+      root<-xmlRoot(tree)
+    }
+  )
+  if (inherits(tmpErr, 'try-error')){
+    return(list(status="ERROR", errFile = "No <xmcda:XMCDA> found."))
+  }
+  
+  if (length(root)!=0){
+    altVals<-newXMLNode("alternativesValues", attrs = attributes, parent=root, namespace=c())
+    for (i in 1:dim(alternativesValues)[1]){
+      tmpErr<-try(
+        {
+          altVal<-newXMLNode("alternativeValue", parent=altVals, namespace=c())
+          newXMLNode("alternativeID", alternativesIDs[alternativesValues[i,1]], parent = altVal, namespace=c())
+          val<-newXMLNode("value", parent = altVal, namespace=c())
+          newXMLNode("integer",alternativesValues[i,2], parent=val, namespace=c())
+        }
+      )
+      if (inherits(tmpErr, 'try-error')){
+        return(list(status="ERROR", errFile = "Impossible to put (a) value(s) in a <alternativesValues>."))
+      }
+    } 
+  }
+  return(list(status="OK", errFile = NULL))
 }
