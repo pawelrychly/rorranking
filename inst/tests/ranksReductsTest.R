@@ -73,8 +73,6 @@ test_that("Finding rank related reducts work properly - hierarchical version. ",
                                               nums.of.characteristic.points=NULL, hierarchy.data=hierarchy.data)
   
   
-
-  
   reducts <- findAllRankRelatedPreferentionalReductsHierarchical(perf=performances, ranks=ranks, strict.vf=FALSE, strong.prefs = strong.preference, weak.prefs = NULL,
                                                                  indif.prefs = NULL,  nums.of.characteristic.points = NULL, hierarchy.data =hierarchy.data)
   #nodes
