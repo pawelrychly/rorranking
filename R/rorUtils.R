@@ -593,8 +593,10 @@ buildRankRelatedRequirementsConstraints <- function(perf, rank.related.requireme
         num.of.vars <- getNumberOfValues(perf)
         differenceIJ <- buildVariantsDiffMatrix(filtered.alt.vars, i, j)
         differenceJI <- buildVariantsDiffMatrix(filtered.alt.vars, j, i)
-        differenceIJ[num.of.vars] = -1
-        differenceJI[num.of.vars] = -1
+        if (length(which(differenceIJ!=0)) > 0) {
+          differenceIJ[num.of.vars] = -1
+          differenceJI[num.of.vars] = -1
+        }
         additional.variablesIJ = vector(mode="numeric",
                                     length=number.of.binary.variables)
         additional.variablesJI = vector(mode="numeric",

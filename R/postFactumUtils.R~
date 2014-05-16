@@ -1,0 +1,749 @@
+
+getSolution <- function(perf, model = NULL, nums.of.characteristic.points = NULL, ret=NULL) {
+  col.ids <- dimnames(perf)[[2]]
+  if (is.null(col.ids)) {
+    col.ids <- seq(ncol(perf))
+  }
+  if (is.null(ret) && is.null(model)) {
+    stop("Konieczne jest podanie modelu problemu (model) lub jego rozwiązania (ret)")
+  }
+  if (is.null(ret)) {
+    number.of.real.variables <- getNumberOfVariables(perf=perf, 
+                                                     numbers.of.characteristic.points=nums.of.characteristic.points)
+    ret <- solveModel(model=model, number.of.real.variables=number.of.real.variables)
+  } 
+  if (ret$status$code != 0) {
+   
+    return(list())
+  } else {
+    par(mfrow = c(3,2))
+    levels <- c()
+    solution <- ret$solution
+    levels <- getLevels(perf)
+    utilities.by.criteria = list()
+    utility.matrix = matrix(data=0, ncol=ncol(perf), nrow=nrow(perf))
+    
+    j = 1;
+    k = 1;
+    mapping.all <- list()
+    for (values in levels) {
+      labels = c()
+      v = c()
+      map <- list()
+      for (value in values) {
+        labels <- c(labels, value)
+        v <- c(v, solution[j])
+        map[[toString(value)]] <- solution[j]
+        j = j+1
+      }
+      points <- matrix(data=c(labels, v), ncol=2)
+      utilities.by.criteria[[toString(col.ids[[k]])]] = points
+      mapping.all[[toString(k)]] <- map
+      k = k + 1
+    }
+    num_of = 1
+    i <- 1
+    if (!is.null(nums.of.characteristic.points)) {
+      i <- sum(as.numeric(lapply(levels, length))) + 2
+      levels = getCharacteristicPoints(perf=perf, nums.of.characteristic.points = nums.of.characteristic.points)
+    } else {
+      i <- 1
+    }
+    
+    for(variant_index in seq(nrow(perf))) {
+      for(value_index in seq(ncol(perf))) {
+        v <- perf[variant_index, value_index]
+        utility.matrix[variant_index, value_index] <- mapping.all[[toString(value_index)]][[toString(v)]]
+      }  
+    }
+    
+    characteristic.points = list()
+    index <- 1
+    for (values in levels) {
+      labels <- c()
+      v <- c()
+      for (value in values) {
+        labels <- c(labels, value)
+        v <- c(v, solution[i])
+        i = i+1
+      }
+      points = matrix(data=c(labels, v), ncol=2)
+      criterion.id <- index
+      
+      criterion.id<-col.ids[[index]]
+      
+      characteristic.points[[criterion.id]] <- points
+      index <- index + 1
+    }
+    result<- list("characteristic.points"=characteristic.points, "utility.matrix"=utility.matrix, 
+                  "utilities.by.criteria"=utilities.by.criteria)
+    return(result)
+  }
+}
+
+equalMatrix <- function(mat1, mat2) {
+  
+  if (ncol(mat1) != ncol(mat2) || (nrow(mat1) != nrow(mat2))) {
+    return(FALSE)
+  }
+  width <- ncol(mat1)
+  height <- nrow(mat1)
+  
+  for (i in seq(height)) {
+    for (j in seq(width)) {
+      if (mat1[i,j] != mat2[i,j]) {
+        return(FALSE)
+      }
+    }
+  }
+  return(TRUE)
+}
+
+pfaImproveVariant <- function(perf, a, q, which.attributes = NULL){
+  
+  if (is.null(which.attributes)){
+    which.attributes = rep(1, ncol(perf))
+  }
+  for (i in seq(ncol(perf))) { 
+    
+    if (which.attributes[i] == 1) {
+      max.val <- max(perf[,i])
+      min.val <- min(perf[,i])
+      perf[a, i] <- perf[a, i] * q
+      
+      if (perf[a, i] > max.val) {
+        perf[a, i] <- max.val
+      }
+      if (perf[a, i] < min.val) {
+        perf[a, i] <- min.val
+      }
+    }
+  }
+  return(perf)
+}
+
+pfaBuildConstraints <- function(base.model, perf, a, b, is.possible=TRUE,
+                                nums.of.characteristic.points=NULL, filter=NULL) {
+  #a - index of variant a
+  #b - index of variant b
+  alt.vars <- buildAltVariableMatrix(perf)
+  if (!is.null(filter)){
+    alt.vars <- getFilteredAltVariableMatrix(altVar=alt.vars, filter=filter)
+  }
+  a.pref.b = vector()
+  if (is.possible) {
+    a.pref.b <- buildWeakPreferenceConstraint(a, b, alt.vars) 
+  } else {  #necessary
+    a.pref.b <- buildWeakPreferenceConstraint(b, a, alt.vars)
+  }
+  a.pref.b$lhs <- matrix(data = a.pref.b$lhs, nrow=1)
+  
+  if (ncol(base.model$lhs) >= ncol(a.pref.b$lhs)) {
+    a.pref.b$lhs <- getNormalizedMatrix(a.pref.b$lhs, ncol(base.model$lhs))  
+  } else {
+    base.model$lhs <- getNormalizedMatrix(base.model$lhs, ncol(a.pref.b$lhs))
+  }
+  all.constraints <-combineConstraints(base.model, a.pref.b)
+  return(all.constraints)
+}
+
+
+findQLimes <- function(perf, a, b, start.q, strict.vf, is.possible=FALSE,
+                       strong.prefs=NULL,weak.prefs=NULL, indif.prefs = NULL,
+                       strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                       rank.related.requirements = NULL,
+                       nums.of.characteristic.points=NULL, which.attributes = NULL, 
+                       direction.up = 1, precision=0.005, criteria.by.nodes=NULL, nodeid=NULL){
+  q <- start.q
+  old.perf = perf
+  new.perf = perf
+  diff <- q
+  q <- q + (direction.up * diff)
+  new.perf <- pfaImproveVariant(perf, a, q, which.attributes = which.attributes)
+  old.perf <- new.perf
+  repeat {
+    if (diff < precision) {
+      if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+        criteria.set <- criteria.by.nodes[[nodeid]]
+        filter <- getCriteriaFilter(perf=new.perf, criteria=criteria.set)
+      }
+      base.model <- buildBaseLPModel(perf=new.perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                     weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                     strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                     rank.related.requirements = rank.related.requirements,
+                                     nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+      constraints <- pfaBuildConstraints(base.model = base.model, perf = new.perf, a = a, b = b, is.possible = is.possible,
+                                         nums.of.characteristic.points = nums.of.characteristic.points, filter=filter)
+      
+      solution<-getSolution(perf=new.perf, model=constraints, nums.of.characteristic.points = nums.of.characteristic.points)
+      result <- list()
+      if (length(solution) > 0) {
+        result <- solution
+      }
+      result[['result']] <- q
+      return(result)
+    }
+    
+    
+    if (equalMatrix(new.perf, old.perf)) {
+      new.q <- q + (direction.up * diff)
+      diff <- diff /2
+    } else {
+      new.q <- q - (direction.up * diff)
+      diff <- diff /2
+    }
+    q <- new.q
+    old.perf <- new.perf
+    new.perf <- pfaImproveVariant(perf, a, q, which.attributes = which.attributes)
+  }
+} 
+
+
+binarySearchForNecessary <- function(perf, a, b, start.q, strict.vf, is.possible=FALSE, 
+                                     strong.prefs=NULL, weak.prefs=NULL, indif.prefs = NULL,
+                                     strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                     rank.related.requirements = NULL,
+                                     nums.of.characteristic.points=NULL, which.attributes = NULL, precision=0.005 , criteria.by.nodes=NULL, nodeid=NULL) {
+  q <- start.q
+  diff <- q/2
+  new.perf <- perf
+  filter <- NULL
+  repeat {
+    #print(q)
+    old.perf <- new.perf
+    new.perf <- pfaImproveVariant(perf, a, q, which.attributes)
+    if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+      criteria.set <- criteria.by.nodes[[nodeid]]
+      filter <- getCriteriaFilter(perf=new.perf, criteria=criteria.set)
+    }
+    base.model <- buildBaseLPModel(perf=new.perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                   weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                   strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                   rank.related.requirements = rank.related.requirements,
+                                   nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+    
+    number.of.real.variables <- getNumberOfVariables(perf=new.perf, 
+                                                     numbers.of.characteristic.points=nums.of.characteristic.points)
+    
+    if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables)) {
+      return(list("status"="Model is infeasible"))
+    }
+    constraints <- pfaBuildConstraints(base.model = base.model, perf = new.perf, a = a, b = b, is.possible = FALSE,
+                                       nums.of.characteristic.points = nums.of.characteristic.points, filter=filter)
+    
+    
+    if (diff < precision) {
+      new.perf <- pfaImproveVariant(perf, a, q - precision, which.attributes)
+      if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+        criteria.set <- criteria.by.nodes[[nodeid]]
+        filter <- getCriteriaFilter(perf=new.perf, criteria=criteria.set)
+      }
+      base.model <- buildBaseLPModel(perf=new.perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                     weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                     strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                     rank.related.requirements = rank.related.requirements,
+                                     nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+      constraints <- pfaBuildConstraints(base.model = base.model, perf = new.perf, a = a, b = b, is.possible = FALSE,
+                                         nums.of.characteristic.points = nums.of.characteristic.points, filter=filter)
+      
+      solution<-getSolution(new.perf, constraints, nums.of.characteristic.points = nums.of.characteristic.points)
+      result <- list()
+      if (length(solution) > 0) {
+        result <- solution
+        result[["status"]] <- "OK"
+        result[['result']] <- q + precision
+      } else {
+        result[["status"]] <- "ERROR"
+        #print(constraints)
+        #print(q + precision)
+      }
+      
+      
+      return(result)
+    }
+    if (!checkConstraintsConsistency(model=constraints,  number.of.real.variables= number.of.real.variables)){       
+      new.q <- q - (diff / 2)
+      diff <- q - new.q
+    } else { 
+      new.q <- q + (diff / 2)
+      diff <- new.q - q
+    }
+    q <- new.q
+  }
+}
+
+binarySearchForPossible <- function(perf, a, b, start.q, strict.vf, is.possible=TRUE, 
+                                    strong.prefs=NULL, weak.prefs=NULL, indif.prefs = NULL,
+                                    strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                    rank.related.requirements = rank.related.requirements,
+                                    nums.of.characteristic.points=NULL, which.attributes = NULL, precision=0.005 , criteria.by.nodes=NULL, nodeid=NULL) {
+  q <- start.q
+  diff <- q/2
+  new.perf <- perf
+  filter <- NULL
+  repeat {
+    old.perf <- new.perf
+    new.perf <- pfaImproveVariant(perf, a, q, which.attributes)
+    if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+      criteria.set <- criteria.by.nodes[[nodeid]]
+      filter <- getCriteriaFilter(perf=new.perf, criteria=criteria.set)
+    }
+    
+    base.model <- buildBaseLPModel(perf=new.perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                   weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                   strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                   rank.related.requirements = rank.related.requirements,
+                                   nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+    number.of.real.variables <- getNumberOfVariables(perf=new.perf, 
+                                                     numbers.of.characteristic.points=nums.of.characteristic.points)
+    if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables)) {
+      return(list("status"="Model infeasible"))
+    }
+    constraints <- pfaBuildConstraints(base.model = base.model, perf = new.perf, a = a, b = b, is.possible = TRUE,
+                                       nums.of.characteristic.points = nums.of.characteristic.points, filter=filter)
+        
+    if (diff < precision) {
+      new.perf <- pfaImproveVariant(perf, a, q + precision, which.attributes) 
+      #Getting solution
+      if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+        criteria.set <- criteria.by.nodes[[nodeid]]
+        filter <- getCriteriaFilter(perf=new.perf, criteria=criteria.set)
+      }
+      base.model <- buildBaseLPModel(perf=new.perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                     weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                     strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                     rank.related.requirements = rank.related.requirements,
+                                     nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+      constraints <- pfaBuildConstraints(base.model = base.model, perf = new.perf, a = a, b = b, is.possible = TRUE,
+                                         nums.of.characteristic.points = nums.of.characteristic.points, filter=filter)
+      solution<-getSolution(new.perf, constraints, nums.of.characteristic.points = nums.of.characteristic.points)
+      result <- list()
+      if (length(solution) > 0) {
+        result <- solution
+      }
+      result[["status"]] <- "OK"
+      result[['result']] <- q + precision
+      return(result)
+    }
+    if (checkConstraintsConsistency(model=constraints,  number.of.real.variables= number.of.real.variables  )){       
+      new.q <- q - (diff / 2)
+      diff <- q - new.q
+    } else { 
+      new.q <- q + (diff / 2)
+      diff <- new.q - q
+    }
+    q <- new.q
+  }
+}
+
+pfaFindQPossibleImprovement <- function(perf, a, b, strict.vf,
+                                        strong.prefs=NULL, weak.prefs=NULL, indif.prefs = NULL,
+                                        strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                        rank.related.requirements = NULL,
+                                        nums.of.characteristic.points=NULL, which.attributes = NULL, precision=0.005, criteria.by.nodes=NULL, nodeid=NULL) {
+  new.perf = perf
+  q <- 1
+  stop.searching = FALSE
+  
+  variables.set <- NULL
+  filter <- NULL
+  
+  repeat {  
+    old.perf = new.perf
+    new.perf <- pfaImproveVariant(perf, a, q, which.attributes = which.attributes)
+    if (equalMatrix(new.perf, old.perf) && (q > 1)) {
+      stop.searching = TRUE #better result is not possible  
+    }
+    if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+      criteria.set <- criteria.by.nodes[[nodeid]]
+      filter <- getCriteriaFilter(perf=new.perf, criteria=criteria.set)
+    }
+    base.model <- buildBaseLPModel(perf=new.perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                   weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                   strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                   rank.related.requirements = rank.related.requirements,
+                                   nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+   
+    number.of.real.variables <- getNumberOfVariables(perf=new.perf, 
+                                                     numbers.of.characteristic.points=nums.of.characteristic.points)
+
+    if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables)) {
+      return(list("status"="Model infeasible"))
+    }
+    constraints <- pfaBuildConstraints(base.model = base.model, perf = new.perf, a = a, b = b, is.possible = TRUE,
+                                       nums.of.characteristic.points = nums.of.characteristic.points, filter=filter)
+    
+    consistent <- checkConstraintsConsistency(model=constraints, number.of.real.variables=number.of.real.variables)
+    
+    if (consistent) {
+      if (q == 1) {
+        #Getting solution
+        solution <- getSolution(new.perf, constraints, nums.of.characteristic.points = nums.of.characteristic.points)
+        result <- list()
+        if (length(solution) > 0) {
+          result <- solution
+        }
+        result[['result']] <- 1
+        return(result)
+      }
+      result <- binarySearchForPossible(perf = perf, a = a, b = b, start.q = q, strict.vf = strict.vf, is.possible = TRUE,
+                                   strong.prefs = strong.prefs, weak.prefs = weak.prefs, indif.prefs = indif.prefs,
+                                   strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                   rank.related.requirements = rank.related.requirements,
+                                   nums.of.characteristic.points = nums.of.characteristic.points,
+                                   which.attributes = which.attributes, precision=precision, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid)
+      return(result);
+    } else {
+      if (stop.searching) {
+        return(list("status"="Model is infeasible"))
+      }
+    }
+    q <- q * 2
+  }
+}
+
+pfaFindQNecessaryImprovement <- function(perf, a, b, strict.vf,
+                                 strong.prefs=NULL, weak.prefs=NULL, indif.prefs = NULL,
+                                 strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                 rank.related.requirements = NULL,
+                                 nums.of.characteristic.points=NULL, which.attributes = NULL, precision=0.005, criteria.by.nodes=NULL, nodeid=NULL) {
+  
+  new.perf = perf
+  q <- 1
+  stop.searching = FALSE
+  
+  variables.set <- NULL
+  filter <- NULL
+  
+  repeat {  
+   
+    old.perf = new.perf
+    new.perf <- pfaImproveVariant(perf, a, q, which.attributes = which.attributes)
+    
+    if (equalMatrix(new.perf, old.perf) && q > 1) {
+      stop.searching = TRUE  
+    }
+    if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+      criteria.set <- criteria.by.nodes[[nodeid]]
+      filter <- getCriteriaFilter(perf=new.perf, criteria=criteria.set)
+    }
+    
+    base.model <- buildBaseLPModel(perf=new.perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                   weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                   strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                   rank.related.requirements = rank.related.requirements,
+                                   nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+    
+    number.of.real.variables <- getNumberOfVariables(perf=new.perf, 
+                                                     numbers.of.characteristic.points=nums.of.characteristic.points)
+    
+    if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables)) {
+      return(list("status"="Model is infeasible"))
+    }
+    constraints <- pfaBuildConstraints(base.model = base.model, perf = new.perf, a = a, b = b, is.possible = FALSE,
+                                       nums.of.characteristic.points = nums.of.characteristic.points, filter=filter)
+    
+    consistent <- checkConstraintsConsistency(model=constraints, number.of.real.variables=number.of.real.variables)
+    if (!consistent) {
+     
+      result <- binarySearchForNecessary(perf = perf, a = a, b = b, is.possible = FALSE, strict.vf = strict.vf,
+                                    strong.prefs = strong.prefs, weak.prefs = weak.prefs, indif.prefs = indif.prefs,
+                                    nums.of.characteristic.points = nums.of.characteristic.points,
+                                    which.attributes = which.attributes, precision=precision, start.q = q, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid)
+      
+      return(result);#binary search
+    } else {
+      if (stop.searching) {
+        return(list("status"="Model is infeasible"))
+      }
+    }
+    q <- q * 2
+  }
+}
+
+
+pfaFindQPossibleDeterioration <- function(perf, a, b, strict.vf,
+                                          strong.prefs=NULL, weak.prefs=NULL, indif.prefs = NULL,
+                                          strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                          rank.related.requirements = FALSE,
+                                          nums.of.characteristic.points=NULL, which.attributes = NULL, precision=0.005, criteria.by.nodes=NULL, nodeid=NULL) {
+  new.perf = perf
+  q <- 1
+  stop.searching = FALSE
+  
+  variables.set <- NULL
+  filter <- NULL
+  repeat {
+    old.perf = new.perf
+    new.perf <- pfaImproveVariant(perf, a, q, which.attributes = which.attributes)
+    if (equalMatrix(new.perf, old.perf) && q < 1) {
+      stop.searching = TRUE  
+    }
+    
+    if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+      criteria.set <- criteria.by.nodes[[nodeid]]
+      filter <- getCriteriaFilter(perf=new.perf, criteria=criteria.set)
+    }
+    
+    base.model <- buildBaseLPModel(perf=new.perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                   weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                   strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                   rank.related.requirements = rank.related.requirements,
+                                   nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+    
+    
+    
+    number.of.real.variables <- getNumberOfVariables(perf=new.perf, 
+                                                     numbers.of.characteristic.points=nums.of.characteristic.points)
+    
+    if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables)) {
+      return(list("status"="Model is infeasible"))
+    }
+    constraints <- pfaBuildConstraints(base.model = base.model, perf = new.perf, a = a, b = b, is.possible = TRUE,
+                                       nums.of.characteristic.points = nums.of.characteristic.points, filter=filter)
+    
+    consistent <- checkConstraintsConsistency(model=constraints, number.of.real.variables=number.of.real.variables)
+    
+    if (!consistent) {
+      if (q == 1) {
+        return(list("status"="Model is infeasible"))
+      }
+      q <- binarySearchForPossible(perf = perf, a = a, b = b, start.q = 2*q, strict.vf = strict.vf, is.possible = TRUE,
+                                   strong.prefs = strong.prefs, weak.prefs = weak.prefs, indif.prefs = indif.prefs,
+                                   strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                   rank.related.requirements = rank.related.requirements,
+                                   nums.of.characteristic.points = nums.of.characteristic.points,
+                                   which.attributes = which.attributes, precision=precision, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid)
+      return(q);
+    } else {
+      if (stop.searching) {
+        ret <- findQLimes(perf=perf, a=a, b=b, start.q=q, strict.vf=strict.vf, is.possible=TRUE,
+                          strong.prefs = strong.prefs, weak.prefs = weak.prefs, indif.prefs = indif.prefs,
+                          strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                          rank.related.requirements = rank.related.requirements,
+                          nums.of.characteristic.points = nums.of.characteristic.points,
+                          which.attributes = which.attributes, 
+                          direction.up = 1, precision=precision, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid)
+        
+        return(ret) ##search limes
+      }
+    }    
+    q <- q * 0.5
+  }
+}
+
+pfaFindQNecessaryDeterioration <-function(perf, a, b, strict.vf,
+                                          strong.prefs=NULL, weak.prefs=NULL, indif.prefs = NULL,
+                                          strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                          rank.related.requirements = NULL,
+                                          nums.of.characteristic.points=NULL, which.attributes = NULL, precision=0.005, criteria.by.nodes=NULL, nodeid=NULL)  {
+  new.perf = perf
+  q <- 1
+  stop.searching = FALSE
+  
+  variables.set <- NULL
+  filter <- NULL
+  
+  repeat {  
+    #print(q)
+    old.perf = new.perf
+    new.perf <- pfaImproveVariant(perf, a, q, which.attributes = which.attributes)
+    if (equalMatrix(new.perf, old.perf) && q < 1) {
+      stop.searching = TRUE  
+    }
+    if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+      criteria.set <- criteria.by.nodes[[nodeid]]
+      filter <- getCriteriaFilter(perf=new.perf, criteria=criteria.set)
+    }
+    base.model <- buildBaseLPModel(perf=new.perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                   weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                   strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                   rank.related.requirements = rank.related.requirements,
+                                   nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+    number.of.real.variables <- getNumberOfVariables(perf=new.perf, 
+                                                     numbers.of.characteristic.points=nums.of.characteristic.points)
+    if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables)) {
+      return(list("status"="Model is infeasible"))
+    }
+    constraints <- pfaBuildConstraints(base.model = base.model, perf = new.perf, a = a, b = b, is.possible = FALSE,
+                                       nums.of.characteristic.points = nums.of.characteristic.points, filter=filter)
+    consistent <- checkConstraintsConsistency(model=constraints, number.of.real.variables=number.of.real.variables)
+    if (consistent) {
+      if (q == 1) {
+        solution<-getSolution(new.perf, constraints, nums.of.characteristic.points = nums.of.characteristic.points)
+        result <- list()
+        if (length(solution) > 0) {
+          result <- solution
+        }
+        result[['result']] <- 1
+        return(result)
+      }
+      result <- binarySearchForNecessary(perf = perf, a = a, b = b, is.possible = FALSE, strict.vf = strict.vf,
+                                         strong.prefs = strong.prefs, weak.prefs = weak.prefs, indif.prefs = indif.prefs,
+                                         nums.of.characteristic.points = nums.of.characteristic.points,
+                                         which.attributes = which.attributes, precision=precision, start.q = 2*q, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid)
+      
+      return(result);
+    } else {
+      if (stop.searching) {
+        result <- findQLimes( perf, a=a, b=b,  start.q = q, is.possible=FALSE, strict.vf=strict.vf, which.attributes = which.attributes,
+                              direction.up = 1, precision=precision, , nums.of.characteristic.points = nums.of.characteristic.points)
+        return(result)
+      }
+    }
+    q <- q * 0.5
+  }
+}
+
+pfaBuildConstraintsForUmissing <- function(perf, a, b, is.possible=TRUE, strict.vf = FALSE,
+                                           strong.prefs=NULL, weak.prefs=NULL, indif.prefs = NULL, 
+                                           strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                           rank.related.requirements = NULL,
+                                           nums.of.characteristic.points=NULL, improvement = TRUE, criteria.by.nodes=NULL, nodeid=NULL) {
+  #a: index of variant a
+  #b: index of variant b
+  #improvement: bool  TRUE/FALSE(deterioration)
+  variables.set <- NULL
+  filter <- NULL
+  if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
+    criteria.set <- criteria.by.nodes[[nodeid]]
+    filter <- getCriteriaFilter(perf=perf, criteria=criteria.set)
+  }
+  alt.vars <- buildAltVariableMatrix(perf)
+  if (!is.null(filter)){
+    alt.vars <- getFilteredAltVariableMatrix(altVar=alt.vars, filter=filter)
+  }
+  base.model <- buildBaseLPModel(perf=perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
+                                 weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
+                                 strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                 rank.related.requirements = rank.related.requirements,
+                                 nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+  
+  number.of.real.variables <- getNumberOfVariables(perf=perf, 
+                                                   numbers.of.characteristic.points=nums.of.characteristic.points)
+  if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables)) {
+    stop("Model infeasible")
+  }
+  a.pref.b = vector()
+  if (is.possible) {
+    a.pref.b <- buildWeakPreferenceConstraint(a, b, alt.vars) 
+  } else {  #necessary
+    a.pref.b <- buildWeakPreferenceConstraint(b, a, alt.vars)
+  }
+  a.pref.b$lhs <- matrix(data = a.pref.b$lhs, nrow=1)
+  if (ncol(base.model$lhs) >= ncol(a.pref.b$lhs)) {
+    a.pref.b$lhs <- getNormalizedMatrix(a.pref.b$lhs, ncol(base.model$lhs))  
+  } else {
+    base.model$lhs <- getNormalizedMatrix(base.model$lhs, ncol(a.pref.b$lhs))
+  }
+  if (((is.possible) && (improvement)) || ((!is.possible) && (!improvement))) {
+    #if (improvement) {
+    a.pref.b$lhs <- cbind(a.pref.b$lhs, 1)  
+  } else {
+    a.pref.b$lhs <- cbind(a.pref.b$lhs, -1)
+  }
+  base.model$lhs <- getNormalizedMatrix(base.model$lhs, ncol(a.pref.b$lhs))
+  greater.than.zero <- list(lhs = rep(0.0, ncol(base.model$lhs)), dir=">=", rhs=0)
+  greater.than.zero$lhs[ncol(base.model$lhs)] <- 1
+  all.constraints <- combineConstraints(base.model, a.pref.b, greater.than.zero)
+  return(all.constraints)
+}
+
+pfaUmissingSolveModel <- function(model, number.of.real.variables, maximum=FALSE) {
+  number.of.all.variables <- ncol(model$lhs)
+  types <- rep('C', number.of.all.variables)
+  if (number.of.real.variables < (number.of.all.variables - 1)){
+    position.of.first.binary.variable <- number.of.real.variables + 1
+    types[position.of.first.binary.variable : (number.of.all.variables-1)] <- 'B'
+  } # C C C .. C B B B B .. B (C) <-Umissing is a real number 
+  obj <- L_objective(pfaUmissingBuildObjective(number.of.all.variables))
+  roiConst <- L_constraint(L = model$lhs, dir = model$dir, rhs=model$rhs)
+  lp <- OP(objective=obj, constraints=roiConst, maximum=maximum, types=types)
+  res <- ROI_solve(lp, .solver)
+  return(res)
+}
+
+pfaUmissingBuildObjective <- function(number.of.all.variables) {
+  objective <- rep(0.0, number.of.all.variables)
+  objective[number.of.all.variables] <- 1  
+  return(objective)
+}
+
+
+possibleComprehensiveImprovement <- function(perf, a, b, strict.vf, strong.prefs=NULL,
+                                             weak.prefs=NULL, indif.prefs = NULL, 
+                                             strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                             rank.related.requirements = NULL,  nums.of.characteristic.points=NULL, precision=0.005,
+                                             which.attributes = NULL, greater.than.one = TRUE, criteria.by.nodes=NULL, nodeid=NULL) {
+  # greater than one == TRUE q >= 1 else q < 1  
+  if (greater.than.one) {
+    q <- pfaFindQPossibleImprovement(perf = perf, a=a, b=b, strict.vf=strict.vf,
+                                     strong.prefs=strong.prefs,weak.prefs=weak.prefs, indif.prefs = indif.prefs,
+                                     strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                     rank.related.requirements = rank.related.requirements,
+                                     nums.of.characteristic.points=nums.of.characteristic.points, which.attributes = which.attributes, precision=precision, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid) 
+  } else {
+    q <- pfaFindQPossibleDeterioration(perf = perf, a=a, b=b, strict.vf=strict.vf,
+                                       strong.prefs=strong.prefs,weak.prefs=weak.prefs, indif.prefs = indif.prefs,
+                                       strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                       rank.related.requirements = rank.related.requirements,
+                                       nums.of.characteristic.points=nums.of.characteristic.points, which.attributes = which.attributes, precision=precision, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid)
+  }
+  return(q)
+}
+
+necessaryComprehensiveImprovement <- function(perf, a, b, strict.vf, strong.prefs=NULL,
+                                              weak.prefs=NULL, indif.prefs = NULL, 
+                                              strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                              rank.related.requirements = NULL,  nums.of.characteristic.points=NULL, precision=0.005,
+                                              which.attributes = NULL, greater.than.one = TRUE, criteria.by.nodes=NULL, nodeid=NULL) {
+  # greater than one == TRUE q >= 1 else q < 1  
+  if (greater.than.one) {
+    q <- pfaFindQNecessaryImprovement(perf = perf, a=a, b=b, strict.vf=strict.vf,
+                                      strong.prefs=strong.prefs,weak.prefs=weak.prefs, indif.prefs = indif.prefs,
+                                      strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                      rank.related.requirements = rank.related.requirements,
+                                      nums.of.characteristic.points=nums.of.characteristic.points, which.attributes = which.attributes, precision=precision, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid)  
+  } else {
+    q <- pfaFindQNecessaryDeterioration(perf = perf, a=a, b=b, strict.vf=strict.vf,
+                                        strong.prefs=strong.prefs,weak.prefs=weak.prefs, indif.prefs = indif.prefs,
+                                        strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs = weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                        rank.related.requirements = rank.related.requirements,
+                                        nums.of.characteristic.points=nums.of.characteristic.points, which.attributes = which.attributes, precision=precision, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid)
+  }
+  return(q)
+}
+
+
+missingUtilityNecessaryOrPossibleComprehensiveImprovement <- function(perf, a, b, strict.vf, is.possibly.preffered,
+                                                                      strong.prefs=NULL, weak.prefs=NULL, indif.prefs = NULL, 
+                                                                      strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                                                      rank.related.requirements = NULL, nums.of.characteristic.points=NULL, improvement=TRUE, criteria.by.nodes=NULL, nodeid=NULL) {
+  constraints <- pfaBuildConstraintsForUmissing(perf = perf, a = a, b = b, is.possible =  is.possibly.preffered, strict.vf = strict.vf,
+                                                strong.prefs=strong.prefs, weak.prefs=weak.prefs, indif.prefs = indif.prefs, 
+                                                strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs =weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 
+                                                rank.related.requirements = rank.related.requirements, nums.of.characteristic.points=nums.of.characteristic.points, improvement=improvement, criteria.by.nodes=criteria.by.nodes, nodeid=nodeid)
+  maximum = TRUE
+  if (((is.possibly.preffered) && (improvement)) || ((!is.possibly.preffered) && (!improvement))) { 
+    maximum = FALSE
+  } else {
+    maximum = TRUE
+  }
+  number.of.real.variables <- getNumberOfVariables(perf=perf, numbers.of.characteristic.points=nums.of.characteristic.points)
+  ret <- pfaUmissingSolveModel(model = constraints, number.of.real.variables = number.of.real.variables, maximum = maximum)
+  solution <- getSolution(perf=perf, nums.of.characteristic.points=nums.of.characteristic.points, ret=ret)
+  result <- list()
+  if (length(solution) > 0) {
+    result <- solution
+  }
+  result[['result']] <- ret$objval
+  return(result)
+}
+
+
+
+
+
+
+
+

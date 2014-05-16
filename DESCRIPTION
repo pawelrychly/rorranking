@@ -1,11 +1,11 @@
 Package: rorranking
 Type: Package
-Title: What the package does (short line)
+Title: Ror ranking extension
 Version: 1.0
 Date: 2014-05-05
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
+Author: Pawel Rychly
+Maintainer: Pawel Rychly <pawelrychly@gmail.com>
 Depends: ROI (>= 0.1-0),ROI.plugin.glpk (>= 0.0-1), rJava (>= 0.9-3), RXMCDA (>= 1.5.0)
-Description: More about what it does (maybe more than one line)
+Description: Ror ranking extension.   
 License: file LICENSE
 Suggests: testthat (>= 0.7.1)
