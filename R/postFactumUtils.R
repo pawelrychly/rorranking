@@ -16,7 +16,7 @@ getSolution <- function(perf, model = NULL, nums.of.characteristic.points = NULL
    
     return(list())
   } else {
-    par(mfrow = c(3,2))
+    #par(mfrow = c(3,2))
     levels <- c()
     solution <- ret$solution
     levels <- getLevels(perf)
@@ -676,6 +676,14 @@ possibleComprehensiveImprovement <- function(perf, a, b, strict.vf, strong.prefs
                                              rank.related.requirements = NULL,  nums.of.characteristic.points=NULL, precision=0.005,
                                              which.attributes = NULL, greater.than.one = TRUE, criteria.by.nodes=NULL, nodeid=NULL) {
   # greater than one == TRUE q >= 1 else q < 1  
+  if (!is.numeric(a)) {
+    criteria <- dimnames(perf)[[1]]
+    a <- which(criteria == a)
+  }
+  if (!is.numeric(b)) {
+    criteria <- dimnames(perf)[[1]]
+    b <- which(criteria == b)
+  }
   if (greater.than.one) {
     q <- pfaFindQPossibleImprovement(perf = perf, a=a, b=b, strict.vf=strict.vf,
                                      strong.prefs=strong.prefs,weak.prefs=weak.prefs, indif.prefs = indif.prefs,
@@ -698,6 +706,14 @@ necessaryComprehensiveImprovement <- function(perf, a, b, strict.vf, strong.pref
                                               rank.related.requirements = NULL,  nums.of.characteristic.points=NULL, precision=0.005,
                                               which.attributes = NULL, greater.than.one = TRUE, criteria.by.nodes=NULL, nodeid=NULL) {
   # greater than one == TRUE q >= 1 else q < 1  
+  if (!is.numeric(a)) {
+    criteria <- dimnames(perf)[[1]]
+    a <- which(criteria == a)
+  }
+  if (!is.numeric(b)) {
+    criteria <- dimnames(perf)[[1]]
+    b <- which(criteria == b)
+  }
   if (greater.than.one) {
     q <- pfaFindQNecessaryImprovement(perf = perf, a=a, b=b, strict.vf=strict.vf,
                                       strong.prefs=strong.prefs,weak.prefs=weak.prefs, indif.prefs = indif.prefs,
@@ -719,6 +735,15 @@ missingUtilityNecessaryOrPossibleComprehensiveImprovement <- function(perf, a, b
                                                                       strong.prefs=NULL, weak.prefs=NULL, indif.prefs = NULL, 
                                                                       strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
                                                                       rank.related.requirements = NULL, nums.of.characteristic.points=NULL, improvement=TRUE, criteria.by.nodes=NULL, nodeid=NULL) {
+  if (!is.numeric(a)) {
+    criteria <- dimnames(perf)[[1]]
+    a <- which(criteria == a)
+  }
+  if (!is.numeric(b)) {
+    criteria <- dimnames(perf)[[1]]
+    b <- which(criteria == b)
+  }
+
   constraints <- pfaBuildConstraintsForUmissing(perf = perf, a = a, b = b, is.possible =  is.possibly.preffered, strict.vf = strict.vf,
                                                 strong.prefs=strong.prefs, weak.prefs=weak.prefs, indif.prefs = indif.prefs, 
                                                 strong.intensities.of.prefs = strong.intensities.of.prefs, weak.intensities.of.prefs =weak.intensities.of.prefs, indif.intensities.of.prefs = indif.intensities.of.prefs, 

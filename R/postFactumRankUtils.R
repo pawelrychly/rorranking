@@ -487,6 +487,11 @@ possibleComprehensiveRankImprovement <- function(perf, a, k, strict.vf, strong.p
                                                  rank.related.requirements = NULL,  nums.of.characteristic.points=NULL, precision=0.005,
                                                  which.attributes = NULL, greater.than.one = TRUE, criteria.by.nodes=NULL, nodeid=NULL) {
   # greater than one  = TRUE q >= 1 else q < 1  
+  if (!is.numeric(a)) {
+    criteria <- dimnames(perf)[[1]]
+    a <- which(criteria == a)
+  }
+
   if (greater.than.one) {
     q <- pfaFindQPossibleRankImprovement(perf = perf, a = a, k = k, strict.vf = strict.vf,
                                          strong.prefs=strong.prefs,weak.prefs=weak.prefs, indif.prefs = indif.prefs,
@@ -510,6 +515,10 @@ necessaryComprehensiveRankImprovement <- function(perf, a, k, strict.vf, strong.
                                                   rank.related.requirements = NULL,  nums.of.characteristic.points=NULL, precision=0.005,
                                                   which.attributes = NULL, greater.than.one = TRUE, criteria.by.nodes=NULL, nodeid=NULL) {
   # greater than one  = TRUE q >= 1 else q < 1  
+  if (!is.numeric(a)) {
+    criteria <- dimnames(perf)[[1]]
+    a <- which(criteria == a)
+  }
   if (greater.than.one) {
     q <- pfaFindQNecessaryRankImprovement(perf = perf, a = a, k = k, strict.vf = strict.vf,
                                           strong.prefs=strong.prefs,weak.prefs=weak.prefs, indif.prefs = indif.prefs,
@@ -670,6 +679,10 @@ pfaUmissingNecessaryOrPossibleComprehensiveRankImprovement <- function(perf, a, 
                                                                        strong.prefs=NULL,weak.prefs=NULL, indif.prefs = NULL,
                                                                        strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
                                                                        rank.related.requirements = NULL,  nums.of.characteristic.points=NULL, improvement=TRUE,  criteria.by.nodes=NULL, nodeid=NULL) {
+  if (!is.numeric(a)) {
+    criteria <- dimnames(perf)[[1]]
+    a <- which(criteria == a)
+  }
   constraints <- list()
   if (is.possibly.preffered) {
     constraints <- pfaRanksBuildConstraintsForPossibly(perf = perf, a = a, k = k, strict.vf = strict.vf,

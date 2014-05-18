@@ -69,7 +69,6 @@ getHierarchyOfCriteriaTree <- function(tree){
   return(list("criteria.by.nodes"=criteria.by.nodes, "hierarchy.tree"=hierarchy.tree, "status"=status))
 }
 
-
 getHierarchyOfCriteriaFromXmcdaFile <- function(filename) {  
   tree <- NULL
   tmpErr<-try(
@@ -96,6 +95,107 @@ getHierarchyOfCriteriaFromXmcdaFile <- function(filename) {
 ########################################
 ####### helpers ########################
 ########################################
+
+getFirstAlternativeValue <- function(tree){
+  alternativeValue <- getNodeSet(tree, paste("//alternativeValue",sep=""))
+  altValue <- NULL  
+  result <- list()
+  if (length(alternativeValue)>0){
+    tmpErr<-try(
+      {
+        alternativeID <- getNodeSet(alternativeValue[[1]], "alternativeID")
+        value <- getNodeSet(alternativeValue[[1]], "value")
+        value <- getNumericValue(value)
+        result[[xmlValue(alternativeID[[1]])]] <- value
+      }
+    )
+    if (inherits(tmpErr, 'try-error')){
+      return(list(status="ERROR", errFile="Impossible to read a value in a <alternativeValue>.",
+                errData=NULL, data=NULL))
+    }
+  } else {#if (length(alternativesValues)>0){
+    return(list(status="ERROR", errFile="No <alternativeValue> found.",
+                errData=NULL, data=NULL))
+  }
+  return(list(status="OK", data=result, errFile=NULL, errData=NULL))
+}
+
+getCriteriaSet <- function(tree){
+  
+  criteria <- getNodeSet(tree, paste("//criteriaSet",sep=""))
+  criteriaIDs <- c()
+  if (length(criteria)>0){
+    for (i in 1:length(criteria)){
+      elements <- getNodeSet(criteria[[i]], "element")
+      if (length(elements)>0){
+        for (j in 1:length(elements)){
+          criterionID<-getNodeSet(elements[[j]], "criterionID")
+          criteriaIDs<-c(criteriaIDs,xmlValue(criterionID[[1]]))
+        }
+      }
+    }
+  }
+  else { #if (length(criteria)>0){
+    return(list(status="ERROR", errFile="No <criteriaSet> found.",
+                errData=NULL, data=NULL))
+  }
+  return(list(status="OK", data=criteriaIDs, errFile=NULL, errData=NULL))
+}
+
+getSelectedCriteriaFromXmcdaFile <- function(filename, criteriaIDs){
+  tree <- NULL
+  filter <- rep(0, length(criteriaIDs))
+  tmpErr <- try(
+    {
+      tree <- xmlTreeParse(filename, useInternalNodes=TRUE)
+    }, silent=TRUE
+  )
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read selected criteria file.", 
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(tree) == 0) {
+    return(list(status="ERROR", errFile ="Selected criteria file is not XMCDA valid.",
+                errData=NULL, data=NULL))  
+  }
+  value <- getCriteriaSet(tree)
+  if (value$status=="OK") {
+    for (criterionID in value$data) {
+       filter[[which(criteriaIDs == criterionID)]] <- 1
+    }
+    return(list(status="OK", errFile = NULL,
+              errData = NULL, data=filter)) 
+  } else {
+    return(list(status="ERROR", errFile = value$errFile,
+                errData = value$errData, data=NULL)) 
+  }
+}
+
+
+getFirstAlternativeValueFromXmcdaFile <- function(alternative.value.filename) {
+  tree <- NULL
+  tmpErr <- try(
+    {
+      tree <- xmlTreeParse(alternative.value.filename, useInternalNodes=TRUE)
+    }, silent=TRUE
+  )
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read alternative value file.", 
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(tree) == 0) {
+    return(list(status="ERROR", errFile ="Alternative value file is not XMCDA valid.",
+                errData=NULL, data=NULL))  
+  }
+  value <- getFirstAlternativeValue(tree)
+  if (value$status=="OK") {
+     return(list(status="OK", errFile = NULL,
+              errData = NULL, data=value$data)) 
+  } else {
+    return(list(status="ERROR", errFile = value$errFile,
+                errData = value$errData, data=NULL)) 
+  }
+}
 
 getPerformancesFromXmcdaFiles <- function(alternatives.filename, criteria.filename, performances.filename) {
   
@@ -920,4 +1020,29 @@ getExtremeRanksByNodesFromXmcdaFile <- function(
                 errData=NULL, data=NULL)) 
   }
   return(list(status="OK", errFile = NULL, errData=NULL, data = results))
+}
+
+getAlternativesComparisonFromXmcdaFile <- function(filename, performances){
+  tree <- NULL
+  tmpErr<-try(
+    {
+      tree<-xmlTreeParse(filename,useInternalNodes=TRUE)
+    }, silent=TRUE
+  )  
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read target.xml file.", 
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(tree)==0) {
+    return(list(status="ERROR", errFile = "Target file is not XMCDA valid.",
+                errData=NULL, data=NULL))  
+  }
+  relations <- getAlternativesComparisonsLabels(tree, rownames(performances))
+  if (relations$status == "OK") {
+    return(list(status="OK", errFile=NULL,
+                errData=NULL, data=relations[[1]][1,]))
+  } else {
+    return(list(status="ERROR", errFile=NULL,
+                errData=relations$status, data=NULL))  
+  }
 }
