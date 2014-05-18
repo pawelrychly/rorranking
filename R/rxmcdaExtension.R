@@ -755,7 +755,7 @@ putAlternativesValuesWithReductsData <- function (tree, reducts.by.alternatives,
 
 
 
-putAlternativesValuesWithAttributes <- function(tree, alternativesValues, alternativesIDs, attributes=c()){
+putAlternativesValuesWithAttributes <- function(tree, alternativesValues, alternativesIDs, attributes=c(), typeOfValues="integer"){
   out<-list()
   err1<-NULL
   err2<-NULL
@@ -775,9 +775,9 @@ putAlternativesValuesWithAttributes <- function(tree, alternativesValues, altern
       tmpErr<-try(
         {
           altVal<-newXMLNode("alternativeValue", parent=altVals, namespace=c())
-          newXMLNode("alternativeID", alternativesIDs[alternativesValues[i,1]], parent = altVal, namespace=c())
+          newXMLNode("alternativeID", alternativesIDs[as.numeric(alternativesValues[i,1])], parent = altVal, namespace=c())
           val<-newXMLNode("value", parent = altVal, namespace=c())
-          newXMLNode("integer",alternativesValues[i,2], parent=val, namespace=c())
+          newXMLNode(typeOfValues,alternativesValues[i,2], parent=val, namespace=c())
         }
       )
       if (inherits(tmpErr, 'try-error')){
