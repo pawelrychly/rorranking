@@ -1046,3 +1046,43 @@ getAlternativesComparisonFromXmcdaFile <- function(filename, performances){
                 errData=relations$status, data=NULL))  
   }
 }
+
+
+putMatrixAsAlternativesValues <- function(tree, alternativesMatrix, attributes=c(), typeOfValues="real"){
+  out<-list()
+  err1<-NULL
+  err2<-NULL
+  root<-NULL
+  tmpErr<-try(
+    {
+      root<-xmlRoot(tree)
+    }
+  )
+  if (inherits(tmpErr, 'try-error')){
+    return(list(status="ERROR", errFile = "No <xmcda:XMCDA> found."))
+  }
+  col.names <- dimnames(alternativesMatrix)[[2]]
+  if (is.null(col.names)) {
+    col.names <- seq(nrow(alternativesMatrix))
+  }
+
+  if (length(root)!=0){
+    altVals<-newXMLNode("alternativesValues", attrs = attributes, parent=root, namespace=c())
+    for (altID in dimnames(alternativesMatrix)[[1]]){
+      tmpErr<-try(
+        {
+          altVal<-newXMLNode("alternativeValue", parent=altVals, namespace=c())
+          newXMLNode("alternativeID", altID, parent = altVal, namespace=c())
+          values<-newXMLNode("values", parent = altVal, namespace=c())
+          for (j in 1:ncol(alternativesMatrix)) {
+            newXMLNode(typeOfValues,alternativesMatrix[altID,j], attrs = c(name=col.names[j]), parent=values, namespace=c())
+          }
+        }
+      )
+      if (inherits(tmpErr, 'try-error')){
+        return(list(status="ERROR", errFile = "Impossible to put (a) value(s) in a <alternativesValues>."))
+      }
+    } 
+  }
+  return(list(status="OK", errFile = NULL))
+}
