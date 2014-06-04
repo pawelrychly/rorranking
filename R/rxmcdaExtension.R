@@ -1132,3 +1132,47 @@ putAlternativesMatrix <- function(tree, alternativesMatrix, attributes=c(), type
   }
   return(list(status="OK", errFile = NULL))
 }
+
+
+putRepresentativeValueFunctions <- function(tree, functions,criteria.names=NULL, attributes=c()){
+  out<-list()
+  err1<-NULL
+  err2<-NULL
+  root<-NULL
+  tmpErr<-try(
+    {
+      root<-xmlRoot(tree)
+    }
+  )
+  if (is.null(criteria.names)) {
+    criteria.names <- seq(length(functions))
+  }
+  if (inherits(tmpErr, 'try-error')){
+    return(list(status="ERROR", errFile = "No <xmcda:XMCDA> found."))
+  }
+
+  if (length(root)!=0){
+    criteriaElement<-newXMLNode("criteria", attrs = attributes, parent=root, namespace=c())
+    for (i in seq(length(functions))){
+      criterionID = criteria.names[i]
+      tmpErr<-try(
+        {
+          criterionElement<-newXMLNode("criterion", attrs = c("id"=criterionID), parent=criteriaElement, namespace=c())
+          criterionFunctionElement = newXMLNode("criterionFunction", parent = criterionElement, namespace=c())
+          pointsElement = newXMLNode("points", parent = criterionFunctionElement, namespace=c())
+          for (j in seq(nrow(functions[[i]]))) {
+            pointElement = newXMLNode("point", parent = pointsElement, namespace=c())
+            abscissaElement = newXMLNode("abscissa", parent = pointElement, namespace=c())
+            abscissaValue =  newXMLNode("real", functions[[i]][j,1], parent = abscissaElement, namespace=c())
+            ordinateElement = newXMLNode("ordinate", parent = pointElement, namespace=c())
+            ordinateValue =  newXMLNode("real", functions[[i]][j,2], parent = ordinateElement, namespace=c())
+          }
+        }
+      )
+      if (inherits(tmpErr, 'try-error')){
+        return(list(status="ERROR", errFile = "Impossible to put functions in a <criteria>."))
+      }
+    } 
+  }
+  return(list(status="OK", errFile = NULL))
+}
