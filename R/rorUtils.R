@@ -1,8 +1,8 @@
 
 #assignInNamespace("MINEPS", ns="ror", value=10e-10)
-MINEPS <- 0.005
+MINEPS <- 0.01
 #assignInNamespace("MINEPS", ns="ror", value=10e-10)
-M_BIG_NUMBER <- 99
+M_BIG_NUMBER <- 10
 
 #library(ror)
 
