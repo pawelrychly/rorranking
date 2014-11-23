@@ -236,7 +236,7 @@ getRanksMatrix <- function(utilities.matrix) {
   
   for (i in seq(nrow(utilities.matrix))) {
    
-    result[i,1] <- length(which(utilities.matrix >= (utilities.matrix[i,1] + MINEPS))) + 1
+    result[i,1] <- length(which(utilities.matrix > (utilities.matrix[i,1]))) + 1
   }
   return(result)
 }
