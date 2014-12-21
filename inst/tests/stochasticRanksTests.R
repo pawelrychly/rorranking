@@ -161,7 +161,15 @@ test_that("Finding necessary and possible relations work properly - Hierarchical
   performances <- getPerformances3()
   hierarchy.data <- getHierarchyData()
   strong.preference = matrix(c("a2","a4", "nodes1"), ncol=3,byrow=TRUE)  
-  
+  #performances <- matrix(c(1,1,1,1,
+  #                         3,7,3,2,
+  #                         5,10,5,5,
+  #                         5,5,5,5,
+  #                         1,5,5,5,
+  #                         10,10,10,10), 
+  #                       ncol=4, 
+  #                       byrow=TRUE);
+
   results <- findRankAcceptabilityIndicesHierarchical(perf =performances, 
                                                            strict.vf = TRUE,
                                                            strong.prefs = strong.preference, weak.prefs = NULL, indif.prefs = NULL,
@@ -184,7 +192,15 @@ test_that("Finding necessary and possible relations work properly - Hierarchical
   performances <- getPerformances3()
   hierarchy.data <- getHierarchyData()
   strong.preference =  matrix(c("a4","a2", "nodes1"), ncol=3,byrow=TRUE)  
-  
+  #performances <- matrix(c(1,1,1,1,
+  #                         3,7,3,2,
+  #                         5,10,5,5,
+  #                         5,5,5,5,
+  #                         1,5,5,5,
+  #                         10,10,10,10), 
+  #                       ncol=4, 
+  #                       byrow=TRUE);
+
   results <- findRankAcceptabilityIndicesHierarchical(perf =performances, 
                                                            strict.vf = TRUE,
                                                            strong.prefs = strong.preference, weak.prefs = NULL, indif.prefs = NULL,
