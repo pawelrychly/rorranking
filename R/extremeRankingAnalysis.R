@@ -1,5 +1,4 @@
 
-
 eraSolveModel <- function(performances, model, number.of.real.variables) {
   number.of.variables <- ncol(model$lhs)
   number.of.binary.variables <- nrow(performances)
@@ -14,7 +13,6 @@ eraSolveModel <- function(performances, model, number.of.real.variables) {
   roiConst <- L_constraint(L = model$lhs, dir =model$dir, rhs=model$rhs)
   lp <- OP(objective=obj, constraints=roiConst, maximum=FALSE, types=types)
   res <- ROI_solve(lp, .solver)
-  #print(res)
   return(res)
 }
 
@@ -23,7 +21,6 @@ eraBuildObjective <- function(performances, number.of.all.variables) {
   number.of.binary.variables <- nrow(performances)
   position.of.first.binary.variable <- number.of.all.variables - number.of.binary.variables + 1
   objective[position.of.first.binary.variable:number.of.all.variables] <- 1
-  #print(objective)
   return(objective)
 }
 
@@ -49,7 +46,6 @@ eraBuildConstraints <- function(rank.constraints, performances, is.rank.max = TR
           difference <- buildVariantsDiffMatrix(alt.vars, j,i)
           difference[getNumberOfValues(performances)] = -1
         }
-        #print(difference)
         
         additional.variables = vector(mode="numeric",
                                       length=number.of.binary.variables)
@@ -92,7 +88,7 @@ extremeRankingAnalysis <- function(perf,
                              strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
                              strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
                              rank.related.requirements = NULL,
-                             nums.of.characteristic.points=NULL, criteria.by.nodes=NULL, nodeid=NULL) {
+                             nums.of.characteristic.points=NULL, criteria=NULL, criteria.by.nodes=NULL, nodeid=NULL) {
   
   # perf - macierz, której wiersze oznaczają różne warianty. Kolumny reprezentują różne atrybuty.
   # strong.prefs
@@ -106,13 +102,13 @@ extremeRankingAnalysis <- function(perf,
                                  strong.intensities.of.prefs =  strong.intensities.of.prefs , weak.intensities.of.prefs = weak.intensities.of.prefs,
                                  indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                  rank.related.requirements = rank.related.requirements,
-                                 nums.of.characteristic.points=nums.of.characteristic.points, 
+                                 nums.of.characteristic.points=nums.of.characteristic.points, criteria=criteria, 
                                  criteria.by.nodes=criteria.by.nodes)
   
   number.of.real.variables <- getNumberOfVariables(perf=perf, numbers.of.characteristic.points=nums.of.characteristic.points)
   
-  if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables)) {
-    
+  eps.position <- getEpsPosition(perf)
+  if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables, eps.position=eps.position)) {
     stop("Model infeasible")
   } 
   
@@ -161,19 +157,18 @@ extremeRankingAnalysis <- function(perf,
   return(ranks)
 }
 
-findExtremeRanks <- function(perf, 
-                                   strict.vf, 
-                                   strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
-                                   strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
-                                   rank.related.requirements = NULL,
-                                   nums.of.characteristic.points=NULL) {
-  
+findExtremeRanks <- function(perf, strict.vf, 
+                             strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
+                             strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                             rank.related.requirements = NULL,
+                             nums.of.characteristic.points=NULL, criteria=NULL) {
+
   ranks <- extremeRankingAnalysis(perf=perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
                               weak.prefs = weak.prefs, indif.prefs = indif.prefs,
                               strong.intensities.of.prefs =  strong.intensities.of.prefs , weak.intensities.of.prefs = weak.intensities.of.prefs,
                               indif.intensities.of.prefs = indif.intensities.of.prefs, 
                               rank.related.requirements = rank.related.requirements,
-                              nums.of.characteristic.points=nums.of.characteristic.points)
+                              nums.of.characteristic.points=nums.of.characteristic.points, criteria=criteria)
   
   return(ranks)
 }
@@ -184,7 +179,7 @@ findExtremeRanksHierarchical <- function(perf,
                                    strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
                                    strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
                                    rank.related.requirements = NULL,
-                                   nums.of.characteristic.points=NULL, hierarchy.data=NULL) {
+                                   nums.of.characteristic.points=NULL, criteria=NULL, hierarchy.data=NULL) {
   
   results <- list()
   hierarchy.data <- prepareHierarchyData(perf, hierarchy.data)
@@ -199,7 +194,7 @@ findExtremeRanksHierarchical <- function(perf,
                                 strong.intensities.of.prefs =  strong.intensities.of.prefs , weak.intensities.of.prefs = weak.intensities.of.prefs,
                                 indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                 rank.related.requirements = rank.related.requirements,
-                                nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes, nodeid=node.id)
+                                nums.of.characteristic.points=nums.of.characteristic.points, criteria=criteria, criteria.by.nodes=criteria.by.nodes, nodeid=node.id)
       
       results[[node.id]] = ranks
     }  

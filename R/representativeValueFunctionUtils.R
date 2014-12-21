@@ -145,10 +145,14 @@ findRepresentativeValueFunctionIterative <- function(perf, strict.vf=FALSE,
                                                   indif.intensities.of.prefs = NULL, 
                                                   rank.related.requirements = NULL, 
                                                   nums.of.characteristic.points = NULL,
+                                                  criteria = NULL,
                                                   nec.relations.matrix=NULL, k=0.0,
                                                   criteria.by.nodes=NULL, nodeid=NULL) {
   if (is.null(nums.of.characteristic.points)) {
     nums.of.characteristic.points = rep(0, ncol(perf))
+  }
+  if (is.null(criteria)) {
+    criteria = rep("g", ncol(perf))
   }
   if (is.null(nec.relations.matrix)) {
     return(list())
@@ -168,7 +172,8 @@ findRepresentativeValueFunctionIterative <- function(perf, strict.vf=FALSE,
                                  strong.intensities.of.prefs =  strong.intensities.of.prefs , weak.intensities.of.prefs = weak.intensities.of.prefs,
                                  indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                  rank.related.requirements = rank.related.requirements,
-                                 nums.of.characteristic.points=nums.of.characteristic.points, 
+                                 nums.of.characteristic.points=nums.of.characteristic.points,
+                                 criteria = criteria, 
                                  criteria.by.nodes=criteria.by.nodes) 
   
   nec.relations <- getListOfPairsWithNecRelations(nec.relations.matrix = nec.relations.matrix)
@@ -244,10 +249,14 @@ findRepresentativeValueFunctionCompromise <- function(perf, strict.vf=FALSE,
                                                      indif.intensities.of.prefs = NULL, 
                                                      rank.related.requirements = NULL, 
                                                      nums.of.characteristic.points = NULL,
+                                                     criteria=NULL,
                                                      nec.relations.matrix=NULL, 
                                                      criteria.by.nodes=NULL, nodeid=NULL) {
   if (is.null(nums.of.characteristic.points)) {
     nums.of.characteristic.points = rep(0, ncol(perf))
+  }
+  if (is.null(criteria)) {
+    criteria = rep("g", ncol(perf))
   }
   if (is.null(nec.relations.matrix)) {
     return(list())
@@ -267,7 +276,8 @@ findRepresentativeValueFunctionCompromise <- function(perf, strict.vf=FALSE,
                                  strong.intensities.of.prefs =  strong.intensities.of.prefs , weak.intensities.of.prefs = weak.intensities.of.prefs,
                                  indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                  rank.related.requirements = rank.related.requirements,
-                                 nums.of.characteristic.points=nums.of.characteristic.points, 
+                                 nums.of.characteristic.points=nums.of.characteristic.points,
+                                 criteria = criteria, 
                                  criteria.by.nodes=criteria.by.nodes) 
   
   nec.relations <- getListOfPairsWithNecRelations(nec.relations.matrix = nec.relations.matrix)

@@ -8,7 +8,7 @@ Finds extreme ranks for each alternative - hierarchical version.
 Function finds extreme ranks for each alternative in a given problem. In this version of function, a hierarchical informations are considered. 
 }
 \usage{
-findExtremeRanksHierarchical(perf, strict.vf, strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, rank.related.requirements = NULL, nums.of.characteristic.points = NULL, hierarchy.data = NULL)
+findExtremeRanksHierarchical(perf, strict.vf, strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, rank.related.requirements = NULL, nums.of.characteristic.points = NULL, criteria=NULL, hierarchy.data = NULL)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -35,6 +35,7 @@ findExtremeRanksHierarchical(perf, strict.vf, strong.prefs = NULL, weak.prefs = 
   k x 3 or k x 4 matrix. Each row means that alternative with id [k, 1] in the final ranking should achive a position between [k, 2] and [k, 3]. Fourth column is optional and could be used to determine a criterion which should be considered.
 }
   \item{nums.of.characteristic.points}{ List of integers. value on n-th position, describes number of characteristic points used in n-th criterion. If value is 0, then no characteristic points are used. }
+  \item{criteria}{ List of characters. value on n-th position, determines the type of n-th criterion. If value equals "c" then criterion is cost. Otherwise the type of criterion is gain. }
   \item{hierarchy.data}{
     a list which contains two elements. 
     criteria.by.nodes - Is a list of criteria ids list, keyed by an node ids.

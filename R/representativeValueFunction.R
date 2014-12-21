@@ -6,6 +6,7 @@ findRepresentativeValueFunction <- function(perf, strict.vf=FALSE,
                                              indif.intensities.of.prefs = NULL, 
                                              rank.related.requirements = NULL, 
                                              nums.of.characteristic.points = NULL,
+                                             criteria = NULL,
                                              nec.relations.matrix=NULL, is.compromise=FALSE, k=0.0) {
   func <- list()
   if (is.compromise) {
@@ -16,6 +17,7 @@ findRepresentativeValueFunction <- function(perf, strict.vf=FALSE,
                                                      indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                                      rank.related.requirements = rank.related.requirements, 
                                                      nums.of.characteristic.points = nums.of.characteristic.points,
+                                                     criteria=criteria,
                                                      nec.relations.matrix=nec.relations.matrix) 
   } else {
     func <- findRepresentativeValueFunctionIterative(perf, strict.vf=strict.vf, 
@@ -24,7 +26,8 @@ findRepresentativeValueFunction <- function(perf, strict.vf=FALSE,
                                                       weak.intensities.of.prefs = weak.intensities.of.prefs,
                                                       indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                                       rank.related.requirements = rank.related.requirements, 
-                                                      nums.of.characteristic.points = nums.of.characteristic.points,
+                                                      nums.of.characteristic.points = nums.of.characteristic.points, 
+                                                      criteria= criteria,
                                                       nec.relations.matrix=nec.relations.matrix, k=k) 
   }
   return(func)
@@ -36,7 +39,8 @@ findRepresentativeValueFunctionHierarchical <-  function(perf, strict.vf=FALSE,
                                                          weak.intensities.of.prefs = NULL,
                                                          indif.intensities.of.prefs = NULL, 
                                                          rank.related.requirements = NULL, 
-                                                         nums.of.characteristic.points = NULL,
+                                                         nums.of.characteristic.points = NULL, 
+                                                         criteria = NULL,
                                                          nec.relations=NULL, is.compromise=FALSE, k=0.0, hierarchy.data=NULL) {
   
   results <- list()
@@ -55,7 +59,8 @@ findRepresentativeValueFunctionHierarchical <-  function(perf, strict.vf=FALSE,
                                                  weak.intensities.of.prefs = weak.intensities.of.prefs,
                                                  indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                                  rank.related.requirements = rank.related.requirements, 
-                                                 nums.of.characteristic.points = nums.of.characteristic.points,
+                                                 nums.of.characteristic.points = nums.of.characteristic.points, 
+                                                 criteria = criteria,
                                                  nec.relations.matrix=nec.relations[[node.id]],
                                                  criteria.by.nodes=criteria.by.nodes, nodeid=node.id) 
       } else {
@@ -66,6 +71,7 @@ findRepresentativeValueFunctionHierarchical <-  function(perf, strict.vf=FALSE,
                                                          indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                                          rank.related.requirements = rank.related.requirements, 
                                                          nums.of.characteristic.points = nums.of.characteristic.points,
+                                                         criteria = criteria,
                                                          nec.relations.matrix=nec.relations[[node.id]],
                                                          k=k,  criteria.by.nodes=criteria.by.nodes, nodeid=node.id) 
       }

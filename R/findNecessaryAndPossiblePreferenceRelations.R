@@ -4,19 +4,21 @@ findPreferenceRelations <- function(perf,
                                    strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
                                    strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
                                    rank.related.requirements = NULL,
-                                   nums.of.characteristic.points=NULL, criteria.by.nodes=NULL, nodeid=NULL) {
-  
+                                   nums.of.characteristic.points=NULL, criteria=NULL, criteria.by.nodes=NULL, nodeid=NULL) {
+
 
   base.model <- buildBaseLPModel(perf, strict.vf, strong.prefs = strong.prefs,
                                  weak.prefs = weak.prefs, indif.prefs = indif.prefs,
                                  strong.intensities.of.prefs =  strong.intensities.of.prefs , weak.intensities.of.prefs = weak.intensities.of.prefs,
                                  indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                  rank.related.requirements = rank.related.requirements,
-                                 nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes)
+                                 nums.of.characteristic.points=nums.of.characteristic.points, criteria=criteria, criteria.by.nodes=criteria.by.nodes)
   
  
   number.of.real.variables <- getNumberOfVariables(perf=perf, numbers.of.characteristic.points=nums.of.characteristic.points)
-  if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables)) {
+  eps.position <- getEpsPosition(perf)
+  if (!checkConstraintsConsistency(model=base.model, number.of.real.variables=number.of.real.variables, eps.position=eps.position)) {
+    
     stop("Model infeasible")
   }
   
@@ -40,13 +42,13 @@ findNecessaryAndPossiblePreferenceRelations <- function(perf,
                                                         strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
                                                         strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
                                                         rank.related.requirements = NULL,
-                                                        nums.of.characteristic.points=NULL) {
+                                                        nums.of.characteristic.points=NULL, criteria=NULL) {
   relations <- findPreferenceRelations(perf=perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
                                        weak.prefs = weak.prefs, indif.prefs = indif.prefs,
                                        strong.intensities.of.prefs =  strong.intensities.of.prefs , weak.intensities.of.prefs = weak.intensities.of.prefs,
                                        indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                        rank.related.requirements = rank.related.requirements,
-                                       nums.of.characteristic.points=nums.of.characteristic.points)
+                                       nums.of.characteristic.points=nums.of.characteristic.points, criteria=criteria)
   return(relations)
 }
 
@@ -55,7 +57,7 @@ findNecessaryAndPossiblePreferenceRelationsHierarchical <- function(perf,
                                                         strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
                                                         strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
                                                         rank.related.requirements = NULL,
-                                                        nums.of.characteristic.points=NULL,  hierarchy.data=NULL) {
+                                                        nums.of.characteristic.points=NULL, criteria=NULL, hierarchy.data=NULL) {
   
 
   results <- list()
@@ -71,7 +73,7 @@ findNecessaryAndPossiblePreferenceRelationsHierarchical <- function(perf,
                                 strong.intensities.of.prefs =  strong.intensities.of.prefs , weak.intensities.of.prefs = weak.intensities.of.prefs,
                                 indif.intensities.of.prefs = indif.intensities.of.prefs, 
                                 rank.related.requirements = rank.related.requirements,
-                                nums.of.characteristic.points=nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes, nodeid=node.id)
+                                nums.of.characteristic.points=nums.of.characteristic.points, criteria=criteria, criteria.by.nodes=criteria.by.nodes, nodeid=node.id)
       
       results[['nec.relations']][[node.id]] <- relations[['nec.relations']]
       results[['pos.relations']][[node.id]] <- relations[['pos.relations']]

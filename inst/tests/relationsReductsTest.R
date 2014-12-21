@@ -128,3 +128,80 @@ test_that("Finding preferentional reducts in hierarchical version work properly.
 })
 
 
+
+
+
+test_that("Finding preferentional reducts in hierarchical version work properly - cost.", {
+  hierarchy.data <- getHierarchyData()
+  performances <- matrix(c(1,10,10,1,
+                           9,9,8,1,
+                           5,6,6,1,
+                           9,10,6,1,
+                           5,6,8,1,
+                           10,1,1,1), 
+                         ncol=4, 
+                         byrow=TRUE);
+  rownames(performances)=c("a1", "a2", "a3", "a4", "a5", "a6");
+  colnames(performances)=c("c01", "c02", "c03", "c04");
+  
+  strong.preference = matrix(c("a4","a3"), ncol=2,byrow=TRUE)  
+  indif.preference = matrix(c("a5","a3"), ncol=2,byrow=TRUE)  
+  criteria <- c("g", "c", "c", "g")
+  relations <- findNecessaryAndPossiblePreferenceRelationsHierarchical(perf = performances, 
+                                                                       strong.prefs = strong.preference, weak.prefs = NULL, indif.prefs = indif.preference, 
+                                                                       strict.vf=FALSE,
+                                                                       nums.of.characteristic.points = NULL, criteria=criteria, hierarchy.data = hierarchy.data)
+  
+  nec.relations <- relations$nec.relations
+  #print(nec.relations[["nodes11"]])
+  reducts <- findPreferentionalReductsForNecessaryRelationsHierarchical(perf = performances, 
+                                                                        strong.prefs = strong.preference, weak.prefs = NULL, indif.prefs =indif.preference, 
+                                                                        strict.vf=FALSE,
+                                                                        nums.of.characteristic.points = NULL, criteria=criteria, nec.relations=nec.relations, hierarchy.data=hierarchy.data)
+  
+  expect_that(reducts[["nodes11"]][["a2 >=^N a1"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a2 >=^N a3"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a2 >=^N a4"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a2 >=^N a5"]],is_equivalent_to(" EMPTY SET "))
+  
+  expect_that(reducts[["nodes11"]][["a3 >=^N a1"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a3 >=^N a5"]],is_equivalent_to(" EMPTY SET "))
+  
+  expect_that(reducts[["nodes11"]][["a4 >=^N a1"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a4 >=^N a2"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a4 >=^N a3"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a4 >=^N a5"]],is_equivalent_to(" EMPTY SET "))
+  
+  expect_that(reducts[["nodes11"]][["a5 >=^N a1"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a5 >=^N a3"]],is_equivalent_to(" EMPTY SET "))
+  
+  expect_that(reducts[["nodes11"]][["a6 >=^N a1"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a6 >=^N a2"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a6 >=^N a3"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a6 >=^N a4"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes11"]][["a6 >=^N a5"]],is_equivalent_to(" EMPTY SET "))
+  
+  expect_that(reducts[["nodes"]][["a2 >=^N a1"]],is_equivalent_to(" EMPTY SET "))
+  expect_that(reducts[["nodes"]][["a2 >=^N a3"]][[1]][[1]],is_equivalent_to("a4 > a3"))
+  expect_that(reducts[["nodes"]][["a2 >=^N a3"]][[1]][[2]],is_equivalent_to("a5 == a3"))
+  expect_that(reducts[["nodes"]][["a4 >=^N a3"]][[1]],is_equivalent_to("a4 > a3"))
+  expect_that(reducts[["nodes"]][["a5 >=^N a3"]][[1]],is_equivalent_to("a5 == a3"))  
+  
+  
+  weak.preference = matrix(c("a4","a3", "nodes1"), ncol=3,byrow=TRUE)  
+  
+  relations <- findNecessaryAndPossiblePreferenceRelationsHierarchical(perf = performances, 
+                                                                       strong.prefs = NULL, weak.prefs = weak.preference, indif.prefs = NULL, 
+                                                                       strict.vf=FALSE,
+                                                                       nums.of.characteristic.points = NULL, criteria=criteria, hierarchy.data = hierarchy.data)
+  
+  nec.relations <- relations$nec.relations
+  #print(nec.relations[["nodes1"]])
+  reducts <- findPreferentionalReductsForNecessaryRelationsHierarchical(perf = performances, 
+                                                                        strong.prefs = NULL, weak.prefs = weak.preference, indif.prefs = NULL, 
+                                                                        strict.vf=FALSE,
+                                                                        nums.of.characteristic.points = NULL, criteria=criteria, nec.relations=nec.relations, hierarchy.data=hierarchy.data)
+  expect_that(reducts[["nodes1"]][["a4 >=^N a5"]][[1]],is_equivalent_to("a4 >= a3[nodes1]"))
+  expect_that(reducts[["nodes1"]][["a4 >=^N a3"]][[1]],is_equivalent_to("a4 >= a3[nodes1]"))  
+})
+

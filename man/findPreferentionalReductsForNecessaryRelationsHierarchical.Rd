@@ -3,7 +3,7 @@
 \title{Finds all rank related preferentional reducts - hierarchical version.}
 \description{ Function finds all preferentional reducts for a each necessary relation. In this version of function, a hierarchical informations are considered. }
 \usage{
-findPreferentionalReductsForNecessaryRelationsHierarchical(perf, strict.vf, strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, nums.of.characteristic.points = NULL, nec.relations = NULL, hierarchy.data = NULL)
+findPreferentionalReductsForNecessaryRelationsHierarchical(perf, strict.vf, strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, nums.of.characteristic.points = NULL, criteria=NULL, nec.relations = NULL, hierarchy.data = NULL)
 }
 \arguments{
   \item{perf}{
@@ -17,6 +17,7 @@ findPreferentionalReductsForNecessaryRelationsHierarchical(perf, strict.vf, stro
   \item{indif.prefs}{
   k x 2 or k x 3 matrix of indifference preferences statements (row indices of alternatives in the performance matrix). Each row r is a preference statements meaning that preferences[k,1] is equally preferred to preferences[k,2]. The third column is optional and it describes a node id, which describes a criteria set, which should be considered. }
   \item{nums.of.characteristic.points}{ List of integers. value on n-th position, describes number of characteristic points used in n-th criterion. If value is 0, then no characteristic points are used. }
+  \item{criteria}{ List of characters. value on n-th position, determines the type of n-th criterion. If value equals "c" then criterion is cost. Otherwise the type of criterion is gain. }
   \item{nec.relations}{
     A list keyed by node ids (described in hierarchy.data). Each value of list is a m x 2  matrix with m alternatives. First column describes the worst possible ranking. The second column describes the best possible ranking position of variant.
   }

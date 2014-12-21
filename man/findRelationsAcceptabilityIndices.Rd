@@ -7,7 +7,7 @@ findRelationsAcceptabilityIndices}
 Function returns pairwise outranking indices matrix 
 }
 \usage{
-findRelationsAcceptabilityIndices(perf, strict.vf, strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, rank.related.requirements = NULL, nums.of.characteristic.points = NULL, num.of.samples = 100)
+findRelationsAcceptabilityIndices(perf, strict.vf, strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, rank.related.requirements = NULL, nums.of.characteristic.points = NULL, criteria=NULL, num.of.samples = 100)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -34,6 +34,7 @@ findRelationsAcceptabilityIndices(perf, strict.vf, strong.prefs = NULL, weak.pre
   k x 3 matrix. Each row means that alternative with id [k, 1] in the final ranking should achive a position between [k, 2] and [k, 3].
 }
    \item{nums.of.characteristic.points}{ List of integers. value on n-th position, describes number of characteristic points used in n-th criterion. If value is 0, then no characteristic points are used. }
+   \item{criteria}{ List of characters. value on n-th position, determines the type of n-th criterion. If value equals "c" then criterion is cost. Otherwise the type of criterion is gain. }
   \item{num.of.samples}{
   number of sempled value function. default value is 100.
 }

@@ -175,6 +175,21 @@ getNumberOfVariables <- function(perf, numbers.of.characteristic.points){
   return(num.of.variables);
 }
 
+getIntervalDataForCost <- function(characteristic.points, criterion.index, value) {
+  i = length(characteristic.points[[criterion.index]]);
+  while((characteristic.points[[criterion.index]][i] >= value) & (i > 1)) {
+    i = i - 1;
+  }
+  bottom = 0
+  top = 0
+  if (i >= 1) {
+    bottom = characteristic.points[[criterion.index]][i];
+    top = characteristic.points[[criterion.index]][i+1];
+  }
+  interval = list(index=i, value = c(bottom, top));
+  return(interval)
+}
+
 getIntervalData <- function(characteristic.points, criterion.index, value) {
   i = 2;
   while((characteristic.points[[criterion.index]][i] < value) & (i <= length(characteristic.points[[criterion.index]]))) {
@@ -222,18 +237,27 @@ getCharacteristicPoints <- function(perf, nums.of.characteristic.points) {
 
 
 buildMonotonousConstraintsForValuesOrCharacteristicPoints <- function(perf,
-                                                              characteristic.points, offsets,  offsets.for.characteristic.points, num.of.variables, strict.vf = FALSE) {
+                                                              characteristic.points, offsets,  offsets.for.characteristic.points, num.of.variables, strict.vf = FALSE, criteria=NULL) {
   levels.list <- getLevels(perf)  
   left.side.of.constraints = c()
+  
   for (i in seq(1:length(characteristic.points))) {  
+    a <- 1
+    b <- -1
+    #if criterion is cost then change direction of monotonic function
+    if (!is.null(criteria) && criteria[[i]] == "c") { 
+      a <- -1
+      b <- 1
+    }
     if (length(characteristic.points[[i]]) > 0) {
       for (j in seq(1:(length(characteristic.points[[i]]) - 1))) {
         index <- offsets.for.characteristic.points[i] + j - 1
         #list of variables, first numOfValues variables means g(x) and epsilon. Next numOfCharacteristicPoints
         #values means g(q_j) and epsilon
         piece.lin.monotonic = vector(mode = "numeric", length = num.of.variables)
-        piece.lin.monotonic[index] <- 1
-        piece.lin.monotonic[index+1] <- -1
+        
+        piece.lin.monotonic[index] <- a
+        piece.lin.monotonic[index+1] <- b
         if (strict.vf == TRUE) {
           nrVars <- getNrVars(levels.list);
           piece.lin.monotonic[nrVars] = 1;
@@ -248,8 +272,8 @@ buildMonotonousConstraintsForValuesOrCharacteristicPoints <- function(perf,
           
           index <- offsets[i] + j - 1
           monotonic <- array(0, dim=num.of.variables)
-          monotonic[index] <- 1
-          monotonic[index+1] <- -1
+          monotonic[index] <- a
+          monotonic[index+1] <- b
           if (strict.vf == TRUE) {
             nrVars <- getNrVars(levels.list);
             monotonic[nrVars] = 1;
@@ -268,22 +292,37 @@ buildMonotonousConstraintsForValuesOrCharacteristicPoints <- function(perf,
 }
 
 buildConstraintsForValuesEvaluation <- function(characteristic.points, 
-                                                offsets.for.characteristic.points, levels.list, numOfVariables) {
+                                                offsets.for.characteristic.points, levels.list, numOfVariables, criteria=NULL) {
   offsets.levels = getOffsets(levels.list);
   left.side.of.constraints = c()
   for (i in seq(1:length(levels.list))) {
     if (length(characteristic.points[[i]] > 0)) {  
-      for (j in seq(1:length(levels.list[[i]]))) {
-        interval <- getIntervalData(characteristic.points, i, levels.list[[i]][j])
-        proc = (levels.list[[i]][j] - interval$value[[1]]) / (interval$value[[2]] - interval$value[[1]])
-        piece.lin.values = vector(mode="numeric", length=numOfVariables)
-        index.levels <- offsets.levels[i] + j - 1;
-        index.interval <- offsets.for.characteristic.points[i] + interval$index - 1; 
-        piece.lin.values[index.levels] = -1;
-        piece.lin.values[index.interval-1] = 1-proc;
-        piece.lin.values[index.interval] = proc;
-        left.side.of.constraints <- rbind(left.side.of.constraints, piece.lin.values)
-      }
+      if (!is.null(criteria) && criteria[[i]] == "c") { 
+        for (j in seq(1:length(levels.list[[i]]))) {
+          interval <- getIntervalDataForCost(characteristic.points, i, levels.list[[i]][j])
+         
+          proc = (interval$value[[2]] - levels.list[[i]][j]) / (interval$value[[2]] - interval$value[[1]])
+          piece.lin.values = vector(mode="numeric", length=numOfVariables)
+          index.levels <- offsets.levels[i] + j - 1;
+          index.interval <- offsets.for.characteristic.points[i] + interval$index - 1; 
+          piece.lin.values[index.levels] = -1;
+          piece.lin.values[index.interval] = proc;
+          piece.lin.values[index.interval + 1] = 1-proc;
+          left.side.of.constraints <- rbind(left.side.of.constraints, piece.lin.values)
+        }
+      } else {
+        for (j in seq(1:length(levels.list[[i]]))) {
+          interval <- getIntervalData(characteristic.points, i, levels.list[[i]][j])
+          proc = (levels.list[[i]][j] - interval$value[[1]]) / (interval$value[[2]] - interval$value[[1]])
+          piece.lin.values = vector(mode="numeric", length=numOfVariables)
+          index.levels <- offsets.levels[i] + j - 1;
+          index.interval <- offsets.for.characteristic.points[i] + interval$index - 1; 
+          piece.lin.values[index.levels] = -1;
+          piece.lin.values[index.interval-1] = 1-proc;
+          piece.lin.values[index.interval] = proc;
+          left.side.of.constraints <- rbind(left.side.of.constraints, piece.lin.values)
+        }  
+      } 
     }
   }
   if (!is.null(left.side.of.constraints)) {
@@ -292,7 +331,7 @@ buildConstraintsForValuesEvaluation <- function(characteristic.points,
   return(list())
 }
 
-buildMonotonousConstraints <- function(perf, strict.vf=FALSE, nums.of.characteristic.points=c()) {
+buildMonotonousConstraints <- function(perf, strict.vf=FALSE, nums.of.characteristic.points=c(), criteria=NULL) {
   
   stopifnot(is.logical(strict.vf));
   levels.list <- getLevels(perf);
@@ -304,16 +343,38 @@ buildMonotonousConstraints <- function(perf, strict.vf=FALSE, nums.of.characteri
   offsets.for.characteristic.points = offsets.for.characteristic.points + num.of.values
   num.of.variables = num.of.values + num.of.characteristic.points;
   c1 <- buildMonotonousConstraintsForValuesOrCharacteristicPoints(
-    perf, characteristic.points, offsets,  offsets.for.characteristic.points, num.of.variables, strict.vf)
+    perf, characteristic.points, offsets,  offsets.for.characteristic.points, num.of.variables, strict.vf, criteria)
   c2 <- buildConstraintsForValuesEvaluation(
-    characteristic.points, offsets.for.characteristic.points, levels.list, num.of.variables)
+    characteristic.points, offsets.for.characteristic.points, levels.list, num.of.variables, criteria)
   monotonousConst <- combineConstraints(c1, c2)
   return(monotonousConst)
 }
 
-buildFirstLevelZeroConstraints <- function(perf) {
+getIndexesOfWorstValues <- function(levels, criteria=NULL) {
+  indexes.of.higher.perf <- cumsum(lapply(levels, length))
+  indexes.of.lower.perf <- c(1, indexes.of.higher.perf[1:length(indexes.of.higher.perf)-1] + 1)
+  for (i in seq(length(levels))) {
+    if ((!is.null(criteria)) && (criteria[[i]] == "c")) {
+      indexes.of.lower.perf[[i]] = indexes.of.higher.perf[[i]]
+    }
+  }
+  return(indexes.of.lower.perf)
+}
+
+getIndexesOfBestValues <- function(levels, criteria=NULL) {
+  indexes.of.higher.perf <- cumsum(lapply(levels, length))
+  indexes.of.lower.perf <- c(1, indexes.of.higher.perf[1:length(indexes.of.higher.perf)-1] + 1)
+  for (i in seq(length(levels))) {
+    if ((!is.null(criteria)) && (criteria[[i]] == "c")) {
+      indexes.of.higher.perf[[i]] = indexes.of.lower.perf[[i]]
+    }
+  }
+  return(indexes.of.higher.perf)
+}
+
+buildFirstLevelZeroConstraints <- function(perf, criteria) {
   levels <- getLevels(perf)
-  offsets <- getOffsets(levels)
+  offsets <- getIndexesOfWorstValues(levels, criteria)
   nrVars <- getNrVars(levels)
   res <- matrix(0, nrow=length(offsets),ncol=nrVars)
   for (i in seq(1:length(offsets))) {
@@ -323,13 +384,12 @@ buildFirstLevelZeroConstraints <- function(perf) {
   return(list(lhs=res,dir=rep("==", length(offsets)),rhs=rep(0,length(offsets))))
 }
 
-buildBestLevelsAddToUnityConstraint <- function(perf) {
+buildBestLevelsAddToUnityConstraint <- function(perf, criteria) {
   levels <- getLevels(perf)
-  offsets <- getOffsets(levels)
+  ind <- getIndexesOfBestValues(levels, criteria)
   nrVars <- getNrVars(levels)
   lhs <- c()
   best.add.to.one <- rep(0, nrVars)
-  ind <- c((offsets-1)[-1], nrVars-1)
   best.add.to.one[ind] = 1
   lhs <- rbind(lhs, best.add.to.one)
   return(list(lhs=lhs, dir="==", rhs=1))
@@ -375,7 +435,7 @@ getNormalizedMatrix <- function(matrix, width, right=TRUE) {
   return(matrix);
 }
 
-buildBaseConstraints <- function( perf, num.of.variables, strict.vf = FALSE,  nums.of.characteristic.points = NULL) {
+buildBaseConstraints <- function( perf, num.of.variables, strict.vf = FALSE,  nums.of.characteristic.points = NULL, criteria=NULL) {
   
   # perf - performances matrix
   # num.of.variables - number of variables used in problem
@@ -384,9 +444,9 @@ buildBaseConstraints <- function( perf, num.of.variables, strict.vf = FALSE,  nu
   #    be piecewise linear
   # nums.of.characteristicPoints - list of values - each value means num of characteristic points on criterium
   c = list(); #list of constraints
-  c[[1]] <- buildMonotonousConstraints(perf, strict.vf, nums.of.characteristic.points)  
-  c[[2]] <- buildFirstLevelZeroConstraints(perf)
-  c[[3]] <- buildBestLevelsAddToUnityConstraint(perf)
+  c[[1]] <- buildMonotonousConstraints(perf, strict.vf, nums.of.characteristic.points, criteria)  
+  c[[2]] <- buildFirstLevelZeroConstraints(perf, criteria)
+  c[[3]] <- buildBestLevelsAddToUnityConstraint(perf, criteria)
   c[[4]] <- buildAllVariablesLessThan1Constraint(perf)
   c[[5]] <- buildEpsilonStrictlyPositiveConstraint(perf)
   normalized.c = list();
@@ -697,16 +757,20 @@ buildBaseLPModel <- function(perf,
                              strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
                              strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
                              rank.related.requirements = NULL,
-                             nums.of.characteristic.points=NULL, criteria.by.nodes=NULL) {
+                             nums.of.characteristic.points=NULL, criteria=NULL, criteria.by.nodes=NULL) {
   
   
   if (is.null(nums.of.characteristic.points)) {
     nums.of.characteristic.points = rep(0, ncol(perf))
   }
+
+  if (is.null(criteria)) {
+    criteria = rep("g", ncol(perf))
+  }
   
   num.of.variables = getNumberOfVariables(perf, nums.of.characteristic.points)
 
-  all.constraints <- buildBaseConstraints(perf, num.of.variables, strict.vf, nums.of.characteristic.points)
+  all.constraints <- buildBaseConstraints(perf, num.of.variables, strict.vf, nums.of.characteristic.points, criteria=criteria)
   
   pairwise.comparison.constraints <- buildPairwiseComparisonConstraints(perf,
                                                                         strong.prefs, weak.prefs, indif.prefs,
@@ -729,7 +793,7 @@ buildBaseLPModel <- function(perf,
   return(all.constraints) 
 }
 
-solveModel <- function(model, number.of.real.variables) {
+solveModel <- function(model, number.of.real.variables, eps.position) {
   number.of.all.variables <- ncol(model$lhs)
 
   types <- rep('C', number.of.all.variables)
@@ -738,7 +802,8 @@ solveModel <- function(model, number.of.real.variables) {
     #position.of.first.binary.variable <- number.of.variables - number.of.binary.variables + 1
     types[position.of.first.binary.variable : number.of.all.variables] <- 'B'
   }  
-  obj <- L_objective(buildObjectiveFunction(number.of.real.variables, number.of.all.variables))
+  obj <- L_objective(buildObjectiveFunction(eps.position, number.of.all.variables)) 
+  
   roiConst <- L_constraint(L = model$lhs, dir =model$dir, rhs=model$rhs)
   lp <- OP(objective=obj, constraints=roiConst, maximum=TRUE, types=types)
   res <- ROI_solve(lp, .solver)
@@ -777,13 +842,13 @@ buildObjectiveFunction <- function(number.of.real.variables, number.of.all.varia
   return(objective)
 }
 
-checkConstraintsConsistency <- function(model, number.of.real.variables) {
+checkConstraintsConsistency <- function(model, number.of.real.variables, eps.position) {
   #check constraints consistency  
   #  model: structure of constraints with the following elements:
   #    model$lhs: matrix - left side of constraints
   #    model$dir: list of operators
   #    model$rhs: matrix - right side of constraints
-  ret <- solveModel( model=model, number.of.real.variables=number.of.real.variables)
+  ret <- solveModel( model=model, number.of.real.variables=number.of.real.variables, eps.position)
   return(ret$status$code == 0 && ret$objval >= MINEPS)
 }
 
@@ -824,6 +889,11 @@ matrixOfRelationsToList <- function(rel) {
 }
 
 
+getEpsPosition <- function(perf) {
+  n <- sum(unlist(lapply(getLevels(perf), length)))
+  return(n+1)
+}
+
 checkRelation <- function(perf, base.model, number.of.real.variables, a, b, necessary = FALSE, filter = NULL) {
   ## check vars
   stopifnot(is.logical(necessary))
@@ -843,7 +913,8 @@ checkRelation <- function(perf, base.model, number.of.real.variables, a, b, nece
   add.const$lhs <- getNormalizedMatrix(add.const$lhs, width=ncol(base.model$lhs)) 
   all.const <- combineConstraints(base.model, add.const)
   
-  ret <- solveModel(all.const, number.of.real.variables)
+  eps.position <- getEpsPosition(perf)
+  ret <- solveModel(all.const, number.of.real.variables, eps.position)
   #  cat("a", a, "b", b, "code", ret$status$code, "objval", ret$objval, "\n")
   
   if (necessary == TRUE) {

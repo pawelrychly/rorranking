@@ -65,14 +65,14 @@ isASubset <- function(candidate.set, superset) {
   return(TRUE)
 }
 
-prCheckConstraintsConsistency <- function(model, number.of.real.variables = 0) {
+prCheckConstraintsConsistency <- function(model, number.of.real.variables = 0,  eps.position) {
   #check constraints consistency  
   #  model: structure of constraints with the following elements:
   #    model$lhs: matrix - left side of constraints
   #    model$dir: list of operators
   #    model$rhs: matrix - right side of constraints
   
-  ret <- solveModel(model, number.of.real.variables)
+  ret <- solveModel(model, number.of.real.variables, eps.position)
   return(ret$status$code == 0 && ret$objval >= MINEPS)
 }
 
@@ -220,7 +220,7 @@ buildConstraintsForRanksPreferentionalReducts <- function(base.constraints, id.o
 }
 
 findRankRelatedReducts <- function(perf, ranks, strict.vf, strong.prefs = NULL, weak.prefs = NULL,
-                                  indif.prefs = NULL, nums.of.characteristic.points = NULL, 
+                                  indif.prefs = NULL, nums.of.characteristic.points = NULL, criteria=NULL,
                                   criteria.by.nodes=NULL, nodeid=NULL) {
   
   
@@ -228,6 +228,9 @@ findRankRelatedReducts <- function(perf, ranks, strict.vf, strong.prefs = NULL, 
   # ranks:  an n x 2 matrix, where each row describes worst and best rank for variant 
   if (is.null(nums.of.characteristic.points)) {
     nums.of.characteristic.points = rep(0, ncol(perf))
+  }
+  if (is.null(criteria)) {
+    criteria = rep("g", ncol(perf))
   }
   
   filter <- NULL
@@ -242,7 +245,7 @@ findRankRelatedReducts <- function(perf, ranks, strict.vf, strong.prefs = NULL, 
   #print(alt.vars)
   
   number.of.real.variables <- getNumberOfVariables(perf=perf, numbers.of.characteristic.points=nums.of.characteristic.points)
-  base.constraints <- buildBaseConstraints(perf, number.of.real.variables, strict.vf, nums.of.characteristic.points)
+  base.constraints <- buildBaseConstraints(perf, number.of.real.variables, strict.vf, nums.of.characteristic.points, criteria=criteria)
   pairwise.comparison.constraints <- buildPairwiseComparisonConstraints(perf, 
                                                                         strong.prefs, weak.prefs, indif.prefs,
                                                                         criteria.by.nodes=criteria.by.nodes)
@@ -275,7 +278,7 @@ findRankRelatedReducts <- function(perf, ranks, strict.vf, strong.prefs = NULL, 
 #   red <- PrFindPreferentionalReductsForNecessaryRelations(perf=performances, strong.prefs=str, weak.prefs=weak,
 #indif.prefs = indif, strict.vf=FALSE)
 findReductsForNecRelations <- function(perf, strict.vf=FALSE, strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, 
-                                       nums.of.characteristic.points = NULL, nec.relations.matrix=NULL, 
+                                       nums.of.characteristic.points = NULL, criteria=NULL, nec.relations.matrix=NULL, 
                                        criteria.by.nodes=NULL, nodeid=NULL) {
   
   
@@ -285,6 +288,10 @@ findReductsForNecRelations <- function(perf, strict.vf=FALSE, strong.prefs = NUL
   if (is.null(nec.relations.matrix)) {
     return(list())
   }
+  if (is.null(criteria)) {
+    criteria = rep("g", ncol(perf))
+  }
+
   filter <- NULL
   if ((!is.null(nodeid)) && (!is.null(criteria.by.nodes))) {
     criteria.set <- criteria.by.nodes[[nodeid]]
@@ -295,10 +302,8 @@ findReductsForNecRelations <- function(perf, strict.vf=FALSE, strong.prefs = NUL
     alt.vars <- getFilteredAltVariableMatrix(altVar=alt.vars, filter=filter)
   }
   number.of.real.variables <- getNumberOfVariables(perf=perf, numbers.of.characteristic.points=nums.of.characteristic.points)
-  base.constraints <- buildBaseConstraints(perf, number.of.real.variables, strict.vf, nums.of.characteristic.points)
-  pairwise.comparison.constraints <- buildPairwiseComparisonConstraints(perf, 
-                                                                        strong.prefs, weak.prefs, indif.prefs,
-                                                                        criteria.by.nodes=criteria.by.nodes)
+  base.constraints <- buildBaseConstraints(perf, number.of.real.variables, strict.vf, nums.of.characteristic.points, criteria=criteria)
+  pairwise.comparison.constraints <- buildPairwiseComparisonConstraints(perf, strong.prefs, weak.prefs, indif.prefs, criteria.by.nodes=criteria.by.nodes)
   
   reducts <- list();
   
@@ -334,10 +339,10 @@ findReductsForNecRelations <- function(perf, strict.vf=FALSE, strong.prefs = NUL
 
 findPreferentionalReductsForNecessaryRelations <- function(perf, strict.vf,
                                                            strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, 
-                                                           nums.of.characteristic.points = NULL, nec.relations.matrix=NULL) {
+                                                           nums.of.characteristic.points = NULL, criteria=NULL, nec.relations.matrix=NULL) {
   reducts <- findReductsForNecRelations(perf=perf, strict.vf=strict.vf,
                                         strong.prefs = strong.prefs, weak.prefs = weak.prefs, indif.prefs = indif.prefs, 
-                                        nums.of.characteristic.points = nums.of.characteristic.points,
+                                        nums.of.characteristic.points = nums.of.characteristic.points, criteria=criteria,
                                         nec.relations.matrix=nec.relations.matrix)
   return(reducts)
 }
@@ -345,7 +350,7 @@ findPreferentionalReductsForNecessaryRelations <- function(perf, strict.vf,
 findPreferentionalReductsForNecessaryRelationsHierarchical <- function(perf, 
                                                strict.vf, 
                                                strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
-                                               nums.of.characteristic.points=NULL, nec.relations=NULL, hierarchy.data=NULL) {
+                                               nums.of.characteristic.points=NULL, criteria=NULL, nec.relations=NULL, hierarchy.data=NULL) {
   
   results <- list()
   hierarchy.data <- prepareHierarchyData(perf, hierarchy.data)
@@ -357,7 +362,7 @@ findPreferentionalReductsForNecessaryRelationsHierarchical <- function(perf,
     for (node.id in nodes) {
       reducts <- findReductsForNecRelations(perf=perf, strict.vf=strict.vf, strong.prefs = strong.prefs,
                                             weak.prefs = weak.prefs, indif.prefs = indif.prefs,
-                                            nums.of.characteristic.points = nums.of.characteristic.points, nec.relations.matrix=nec.relations[[node.id]], 
+                                            nums.of.characteristic.points = nums.of.characteristic.points, criteria=criteria, nec.relations.matrix=nec.relations[[node.id]], 
                                             criteria.by.nodes=criteria.by.nodes, nodeid=node.id) 
 
       results[[node.id]] = reducts
@@ -368,16 +373,16 @@ findPreferentionalReductsForNecessaryRelationsHierarchical <- function(perf,
 }
 
 findAllRankRelatedPreferentionalReducts <- function(perf, ranks, strict.vf, strong.prefs = NULL, weak.prefs = NULL,
-                                                    indif.prefs = NULL,  nums.of.characteristic.points = NULL) {
+                                                    indif.prefs = NULL,  nums.of.characteristic.points = NULL, criteria=NULL) {
   
   reducts <- findRankRelatedReducts(perf=perf, strict.vf=strict.vf, ranks=ranks, strong.prefs = strong.prefs, weak.prefs = weak.prefs,
-                                    indif.prefs = indif.prefs, nums.of.characteristic.points = nums.of.characteristic.points)
+                                    indif.prefs = indif.prefs, nums.of.characteristic.points = nums.of.characteristic.points, criteria=criteria)
   return(reducts)
 }
 
 findAllRankRelatedPreferentionalReductsHierarchical <- function(perf, ranks,  strict.vf, 
                                                                 strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL,
-                                                                nums.of.characteristic.points=NULL, hierarchy.data=NULL) {
+                                                                nums.of.characteristic.points=NULL, criteria=NULL, hierarchy.data=NULL) {
   
   results <- list()
   hierarchy.data <- prepareHierarchyData(perf, hierarchy.data)
@@ -389,7 +394,8 @@ findAllRankRelatedPreferentionalReductsHierarchical <- function(perf, ranks,  st
     for (node.id in nodes) {
       #print(node.id)
       reducts <- findRankRelatedReducts(perf=perf, ranks=ranks[[node.id]], strong.prefs = strong.prefs, weak.prefs = weak.prefs,
-                                        indif.prefs = indif.prefs, strict.vf=strict.vf, nums.of.characteristic.points = nums.of.characteristic.points, criteria.by.nodes=criteria.by.nodes, nodeid=node.id)
+                                        indif.prefs = indif.prefs, strict.vf=strict.vf, nums.of.characteristic.points = nums.of.characteristic.points, 
+                                        criteria=criteria, criteria.by.nodes=criteria.by.nodes, nodeid=node.id)
       
       results[[node.id]] = reducts
     }  

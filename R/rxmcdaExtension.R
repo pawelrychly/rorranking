@@ -1176,3 +1176,38 @@ putRepresentativeValueFunctions <- function(tree, functions,criteria.names=NULL,
   }
   return(list(status="OK", errFile = NULL))
 }
+
+
+getCriteriaPreferenceDirectionFromXmcdaFile <- function(filename, performances){
+  treePoints <- NULL
+  tmpErr<-try(
+    {
+      treePoints<-xmlTreeParse(filename,useInternalNodes=TRUE)
+    }, silent=TRUE
+  )  
+  if (inherits(tmpErr, 'try-error')) {
+    return(list(status="ERROR", errFile ="Cannot read criteria-preference-directions.xml file.", 
+                errData=NULL, data=NULL)) 
+  }
+  if (checkXSD(treePoints)==0) {
+    return(list(status="ERROR", errFile = "criteria preference directions File is not XMCDA valid.",
+                errData=NULL, data=NULL))  
+  }
+  
+  values <- getCriteriaValues(treePoints, colnames(performances))
+  if (values$status == "OK") {
+    criteria.directions <- rep("g", length(colnames(performances)))
+    for (row_num in 1:nrow(values[[1]])) {
+      row <- values[[1]][row_num,]
+      if (row[2] == 1) {
+        criteria.directions[row[1]] <- "c" 
+      }
+      
+    } 
+    return(list(status="OK", errFile=NULL,
+                errData=NULL, data=criteria.directions))
+  } else {
+    return(list(status="ERROR", errFile=NULL,
+                errData=values$status, data=NULL))  
+  }
+}

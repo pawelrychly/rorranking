@@ -36,6 +36,20 @@ getPerformances2 <- function() {
   rownames(performances)=c("a1", "a2", "a3", "a4", "a5", "a6");
   colnames(performances)=c("c01", "c02", "c03", "c04");
   return(performances);
+}  
+getPerformances3 <- function() {
+    # performances2 but last colulmn changed to cost
+    performances <- matrix(c(1,1,1,10,
+                             3,7,3,9,
+                             1,10,5,6,
+                             5,5,5,6,
+                             1,5,5,6,
+                             10,10,10,1), 
+                           ncol=4, 
+                           byrow=TRUE);
+    rownames(performances)=c("a1", "a2", "a3", "a4", "a5", "a6");
+    colnames(performances)=c("c01", "c02", "c03", "c04");
+    return(performances);
 }
 
 getPerformancesHierarchical <- function() {
@@ -168,6 +182,114 @@ test_that("Finding necessary and possible relations work properly - Hierarchical
   
   nodes1.nec <- results$nec.relations$nodes1
   nodes1.pos <- results$pos.relations$nodes1
+  
+  #DIAGONAL
+  expect_that(nodes1.nec[2,4],is_equivalent_to(TRUE))
+  expect_that(nodes1.pos[4,2],is_equivalent_to(FALSE))
+  
+  #print("Finding neccessary and possible relations - Hierarchical OK")
+})
+
+test_that("Finding necessary and possible relations work properly - with cost criteria.", {
+  performances <- getPerformances3()
+  hierarchy.data <- getHierarchyData()
+  criteria <- c("g", "g", "g", "c")
+  strong.preference = matrix(c("a3","a2"),ncol=2, byrow=TRUE)
+  weak.preference = matrix(c("a4","a3"),ncol=2, byrow=TRUE)
+  results <- findNecessaryAndPossiblePreferenceRelations(perf =performances, 
+                                                         strict.vf = TRUE,
+                                                         strong.prefs = strong.preference, weak.prefs = weak.preference, indif.prefs = NULL,
+                                                         strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, 
+                                                         rank.related.requirements = NULL,
+                                                         nums.of.characteristic.points=NULL, criteria=criteria)
+  
+  nec.relations = results$nec.relations
+  pos.relations = results$pos.relations
+  #DIAGONAL
+  expect_that(nec.relations[1,1],is_equivalent_to(TRUE))
+  expect_that(nec.relations[2,2],is_equivalent_to(TRUE))
+  expect_that(nec.relations[3,3],is_equivalent_to(TRUE))
+  expect_that(nec.relations[4,4],is_equivalent_to(TRUE))
+  expect_that(nec.relations[5,5],is_equivalent_to(TRUE))
+  expect_that(nec.relations[6,6],is_equivalent_to(TRUE))
+  
+  #FIRST IS WORST
+  expect_that(nec.relations[1,1],is_equivalent_to(TRUE))
+  expect_that(nec.relations[2,1],is_equivalent_to(TRUE))
+  expect_that(nec.relations[3,1],is_equivalent_to(TRUE))
+  expect_that(nec.relations[4,1],is_equivalent_to(TRUE))
+  expect_that(nec.relations[5,1],is_equivalent_to(TRUE))
+  expect_that(nec.relations[6,1],is_equivalent_to(TRUE))
+  
+  #LAST IS THE BEST
+  expect_that(nec.relations[6,1],is_equivalent_to(TRUE))
+  expect_that(nec.relations[6,2],is_equivalent_to(TRUE))
+  expect_that(nec.relations[6,3],is_equivalent_to(TRUE))
+  expect_that(nec.relations[6,4],is_equivalent_to(TRUE))
+  expect_that(nec.relations[6,5],is_equivalent_to(TRUE))
+  expect_that(nec.relations[6,6],is_equivalent_to(TRUE))
+  
+  #(a3 better than a5) and (a4 better than a5)
+  expect_that(nec.relations[3,5],is_equivalent_to(TRUE))
+  expect_that(nec.relations[4,5],is_equivalent_to(TRUE))
+  #PREFERENCES
+  expect_that(nec.relations[4,3],is_equivalent_to(TRUE))
+  expect_that(nec.relations[3,2],is_equivalent_to(TRUE))
+  expect_that(nec.relations[3,2],is_equivalent_to(TRUE))
+  
+  
+  #DIAGONAL
+  expect_that(pos.relations[1,1],is_equivalent_to(TRUE))
+  expect_that(pos.relations[2,2],is_equivalent_to(TRUE))
+  expect_that(pos.relations[3,3],is_equivalent_to(TRUE))
+  expect_that(pos.relations[4,4],is_equivalent_to(TRUE))
+  expect_that(pos.relations[5,5],is_equivalent_to(TRUE))
+  expect_that(pos.relations[6,6],is_equivalent_to(TRUE))  
+  
+  #FIRST IS WORST
+  expect_that(pos.relations[1,2],is_equivalent_to(FALSE))
+  expect_that(pos.relations[1,3],is_equivalent_to(FALSE))
+  expect_that(pos.relations[1,4],is_equivalent_to(FALSE))
+  expect_that(pos.relations[1,5],is_equivalent_to(FALSE))
+  expect_that(pos.relations[1,6],is_equivalent_to(FALSE))
+  
+  #LAST IS THE BEST
+  expect_that(pos.relations[1,6],is_equivalent_to(FALSE))
+  expect_that(pos.relations[2,6],is_equivalent_to(FALSE))
+  expect_that(pos.relations[3,6],is_equivalent_to(FALSE))
+  expect_that(pos.relations[4,6],is_equivalent_to(FALSE))
+  expect_that(pos.relations[5,6],is_equivalent_to(FALSE))
+  
+  expect_that(pos.relations[5,3],is_equivalent_to(FALSE))
+  expect_that(pos.relations[5,4],is_equivalent_to(FALSE))
+  
+  
+  #print("Finding neccessary and possible relations OK")
+})
+
+test_that("Finding necessary and possible relations work properly - Hierarchical -costs.", {
+  
+  # matrix(c(1,1,1,1,
+  #           3,7,3,2,
+  #           1,10,5,5,
+  #           5,5,5,5,
+  #           1,5,5,5,
+  #           10,10,10,10), 
+  #         ncol=4, 
+  #        byrow=TRUE);
+  performances <- getPerformances2()
+  hierarchy.data <- getHierarchyData()
+  strong.preference = matrix(c("a2","a4", "nodes1"), ncol=3,byrow=TRUE)  
+  criteria<- c("c", "c", "c", "c")
+  results <- findNecessaryAndPossiblePreferenceRelationsHierarchical(
+    perf = performances, strict.vf = FALSE, strong.prefs = strong.preference,nums.of.characteristic.points=c(2,2,2,2), criteria=criteria, hierarchy.data=hierarchy.data
+  ) 
+  
+
+  nodes1.nec <- results$nec.relations$nodes1
+  nodes1.pos <- results$pos.relations$nodes1
+  
+  
   
   #DIAGONAL
   expect_that(nodes1.nec[2,4],is_equivalent_to(TRUE))

@@ -8,7 +8,7 @@ findRepresentativeValueFunction
 Function finds representative value function for a given problem
 }
 \usage{
-findRepresentativeValueFunction(perf, strict.vf = FALSE, strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, rank.related.requirements = NULL, nums.of.characteristic.points = NULL, nec.relations.matrix = NULL, is.compromise = FALSE, k = 0)
+findRepresentativeValueFunction(perf, strict.vf = FALSE, strong.prefs = NULL, weak.prefs = NULL, indif.prefs = NULL, strong.intensities.of.prefs = NULL, weak.intensities.of.prefs = NULL, indif.intensities.of.prefs = NULL, rank.related.requirements = NULL, nums.of.characteristic.points = NULL, criteria=NULL, nec.relations.matrix = NULL, is.compromise = FALSE, k = 0)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -35,6 +35,7 @@ findRepresentativeValueFunction(perf, strict.vf = FALSE, strong.prefs = NULL, we
   k x 3 matrix. Each row means that alternative with id [k, 1] in the final ranking should achive a position between [k, 2] and [k, 3].
 }
    \item{nums.of.characteristic.points}{ List of integers. value on n-th position, describes number of characteristic points used in n-th criterion. If value is 0, then no characteristic points are used. }
+   \item{criteria}{ List of characters. value on n-th position, determines the type of n-th criterion. If value equals "c" then criterion is cost. Otherwise the type of criterion is gain. }
   \item{nec.relations.matrix}{
     m x 2  matrix with m alternatives. First column describes the worst possible ranking. The second column describes the best possible ranking position of variant.
   }
